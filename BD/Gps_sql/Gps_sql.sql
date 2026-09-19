@@ -22,4 +22,6 @@ CREATE TABLE comp_ruta (
         REFERENCES rutas(id),
     FOREIGN KEY (estacion_id)
         REFERENCES estaciones(id)
+    
+    UNIQUE (estacion_id,orden);
 );
