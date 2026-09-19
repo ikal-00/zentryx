@@ -1,15 +1,20 @@
 from flask import Flask
 from dotenv import load_dotenv
+from psycopg_pool import ConnectionPool
 import os
 from .GPS import rutas
 
-load_dotenv()
+load_dotenv();
 def create_app() -> Flask:
     app = Flask(__name__);
 
     app.register_blueprint(rutas);
-
-
+    app.config["POOL"] = ConnectionPool (
+        os.getenv("POSTGRES_URL"),
+        min_size=5,
+        max_size=30
+    );
+    
     return app;
 
 
