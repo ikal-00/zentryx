@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "device_id": "gps-01",
+  "vehicle_id": "unit-01",
+  "seq": 152,
+  "observed_at": "2026-09-20T05:31:22Z",
+  "position": {
+    "lat": 19.62211,
+    "lon": -99.16299,
+    "speed_mps": 8.3,
+    "accuracy_m": 4.7,
+    "heading_deg": 124.5,
+    "satellites": 12
+  }
+}
