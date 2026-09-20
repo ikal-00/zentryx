@@ -152,7 +152,7 @@ Niveles iniciales de ocupación:
 Header esperado:
 
 ```text
-Content-Type: application/json
+Content-Type: pocision/json
 Authorization: Device <token>
 ```
 
