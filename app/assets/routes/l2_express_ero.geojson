@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "name": "Zentryx - Mexibús Línea 2 - Estación Retorno Oriente",
+  "source": "OpenStreetMap / Overpass export",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "station_id": "node/13825957694",
+        "route_id": "route-l2",
+        "name": "Estación Retorno Oriente (ERO)",
+        "osm_name": "Lechería (Servicio Exprés)",
+        "service": "express",
+        "main_corridor_stop": false,
+        "note": "Terminal del servicio exprés de Línea 2; no forma parte de la secuencia ordinaria La Quebrada-Las Américas."
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-99.1846954, 19.598438]
+      }
+    }
+  ]
+}
