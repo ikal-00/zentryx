@@ -10,9 +10,11 @@ source .venv/bin/activate
 flet run --web main.py
 ```
 
-Si falta alguna dependencia, `python -m pip install -r requirements.txt` instala
-las versiones verificadas (Flet 1.0.0 y flet-map 1.0.0). Para un entorno nuevo,
-crea primero `.venv` con `python3 -m venv .venv`.
+Si falta alguna dependencia:
+
+```bash
+python -m pip install -r requirements.txt
+```
 
 Para abrirla en un teléfono conectado a la misma red local:
 
@@ -20,55 +22,66 @@ Para abrirla en un teléfono conectado a la misma red local:
 flet run --web --host '*' --port 8550 main.py
 ```
 
-Abre `http://IP_LOCAL_DE_TU_COMPUTADORA:8550` en el teléfono. Los mosaicos de
-OpenStreetMap necesitan conexión a internet. El GeoJSON se resuelve relativo
-a `main.py`, sin depender del directorio desde el que se importe el módulo.
+Los mosaicos de OpenStreetMap necesitan conexión a internet.
 
-## Organización
+## Organización del frontend
 
-- `main.py`: composición, selección de estaciones, cámara y consumo del servicio.
-- `components/passenger.py`: cabecera, controles, tarjeta de unidad/estación y banner.
+- `main.py`: composición de pantalla, cámara, selección de estaciones y consumo del adaptador de vehículo.
+- `components/passenger.py`: cabecera, controles, tarjeta de unidad/estación y banner de alertas.
+- `services/route_service.py`: catálogo y validación de líneas/servicios/rutas.
+- `services/vehicle_service.py`: contrato actual de snapshots y fuente de demostración.
 - `theme.py`: colores, dimensiones, sombras y configuración de Flet.
-- `services/`: fuente de datos existente, sin modificaciones.
-- `assets/`: geografía original, sin modificaciones.
+- `assets/routes/`: geometría y estaciones separadas por servicio.
 
-El mapa conserva ruta, movimiento, rumbo y seguimiento cada seis snapshots.
-Arrastrar o ampliar manualmente libera la cámara; centrar vuelve a seguir la
-última posición. Tocar una estación abre su ficha y libera la cámara. Cerrar
-la ficha regresa a la tarjeta de unidad sin mover el mapa; centrar también
-cierra la ficha y reanuda el seguimiento.
+### Assets actuales
 
-La tarjeta inferior mide como máximo 460 px. En ventanas de menos de 560 px
-de alto tiene desplazamiento vertical para conservar un área útil de mapa.
-Los botones principales tienen zonas táctiles de 48–52 px y etiquetas accesibles.
+```text
+assets/routes/
+├── l2_ordinary_route.geojson
+├── l2_ordinary_stations.geojson
+└── l2_express_ero.geojson
+```
 
-## Datos actuales y futura integración
+`l2_ordinary_route.geojson` contiene el corredor La Quebrada → Las Américas reconstruido a partir de los `ways` de la relación OSM de Línea 2. La polilínea se recortó a las terminales y se simplificó con una desviación máxima aproximada de 1.5 m para conservar detalle sin cargar cientos de vértices innecesarios.
 
-`VehicleService` todavía genera el recorrido de demostración original. La UI
-muestra **Datos de demostración** y no afirma que la unidad sea GPS en vivo.
-No se agregaron vehículos, estaciones, saturación ni incidentes simulados.
+`l2_ordinary_stations.geojson` mantiene las 43 estaciones del servicio ordinario con `stop_order` de 1 a 43. El frontend usa ese orden como fuente de verdad; la proyección sobre la geometría se utiliza únicamente para obtener progreso métrico mientras siga activo el adaptador de demostración.
 
-Se preserva el cálculo existente de próxima estación: proyección sobre la ruta,
-sentido, tolerancia de 15 m y distancia / velocidad. La presentación del ETA
-usa minutos redondeados hacia arriba o `<1 min`; detenido sin ETA muestra `—`.
-No es una predicción de tráfico ni incorpora tiempos de parada.
+ERO queda separado porque corresponde al servicio exprés y no se inserta artificialmente dentro de la secuencia del servicio ordinario.
 
-Cuando se conecte la API:
+## Preparado para múltiples servicios
 
-- Sustituir el adaptador de datos manteniendo la interfaz de snapshots y cambiar
-  `demo_source` en `main.py`. Un `online` se presenta como **Unidad conectada**,
-  no como confirmación del estado general del servicio.
-- `low`, `medium`, `high` tienen etiquetas de ocupación; `unknown` se oculta.
-- `AlertBanner.set_alert(payload)` acepta un aviso real activo con `message`
-  y `severity` (`info`, `warning`, `critical`), según `/contracts/api_v1.md`.
-  El adaptador debe filtrar el aviso por ruta/unidad antes de suministrarlo y
-  llamar a `page.update()`. El banner queda oculto cuando no hay datos.
-- Las fichas de estación usan únicamente el nombre del GeoJSON. No presentan
-  unidades acercándose, ETAs ni estados inventados; falta integrar ese servicio.
-- Las coordenadas y el rumbo permanecen en los snapshots y en el mapa, sin
-  ocupar espacio en la tarjeta del pasajero.
+La UI ya no necesita conocer nombres como `La Quebrada` o `Las Américas` dentro de `VehicleService`. `route_service.py` entrega:
 
-Backend, BD, firmware y contratos no se modifican.
+- `route_id`
+- `line_id`
+- etiqueta de línea
+- red
+- `service_id`
+- nombre de servicio
+- terminal origen/destino
+- etiquetas de ambos sentidos
+- geometría
+- estaciones ordenadas
+
+Para añadir otra variante se agregan sus assets y una entrada en `SERVICE_ASSETS`; el mapa puede reutilizar la misma estructura.
+
+## Seguimiento del mapa
+
+El marcador del vehículo continúa actualizándose con cada snapshot, pero la cámara ya no intenta iniciar una animación por cada pequeño grupo de paquetes. El seguimiento se limita por tiempo y distancia mínima, reduciendo animaciones solapadas.
+
+Mover el mapa manualmente cambia a **Exploración libre**. El botón de centrar vuelve a la última posición de la unidad y reactiva el seguimiento.
+
+La rotación del marcador usa un ángulo continuo para evitar que un cambio de heading como `359° → 1°` provoque visualmente una vuelta casi completa.
+
+## Datos actuales y futura API
+
+`VehicleService` sigue siendo únicamente una fuente de demostración hasta que esté disponible la API. La UI muestra **Datos de demostración** y no afirma que la unidad sea GPS en vivo.
+
+No se agregaron saturación, alertas, incidentes ni unidades ficticias nuevas.
+
+La próxima estación y el ETA siguen calculándose localmente solo para mantener funcional la demo. Cuando el backend entregue esos datos, la app debe consumirlos y retirar ese cálculo local para evitar dos fuentes de verdad.
+
+El siguiente adaptador real debería conservar, en lo posible, el contrato de `VehicleSnapshot` para que `main.py` no tenga que reconstruirse.
 
 ## Validación
 
@@ -76,18 +89,22 @@ Desde `app`:
 
 ```bash
 python -m unittest discover -s tests -v
-python -m compileall -q main.py components theme.py
+python -m compileall -q main.py components services theme.py
 ```
 
-Se verificaron seis pruebas: cambio de seguimiento por gestos, centrado,
-selección de estación, actualización de marcador y rumbo, ETA en ambos sentidos
-y casos detenido/terminal, datos ausentes/alertas, geografía y tamaños de ventana.
-Los tests usan controles Flet reales; la llamada de cámara al cliente se sustituye
-por un mock. No reemplazan la comprobación visual.
+Las pruebas cubren, entre otras cosas:
 
-También se arrancó `flet run --web main.py` y se verificaron HTTP 200 para la
-página y el GeoJSON. Se inspeccionó la UI en Chromium a 390×844, 320×568,
-844×390 y 1440×900, y se probaron arrastre, centrado, selección y cierre de ficha.
-La red del entorno de validación no permitió cargar los mosaicos externos de
-OpenStreetMap: se comprobó el render de ruta y marcadores, pero la cartografía
-base requiere comprobación final en una red con acceso a ese proveedor.
+- seguimiento y exploración libre
+- botón de centrado
+- selección de estaciones
+- limitación de movimientos de cámara ante ráfagas de snapshots
+- heading al cruzar 0°/360°
+- ETA en ambos sentidos de la demo
+- `stop_order` 1–43 sin huecos
+- nombres de estación sin duplicados
+- terminales correctas
+- estaciones alineadas a menos de 30 m de la geometría
+- inyección de etiquetas de dirección sin hardcodes de Línea 2
+- tamaños de ventana móvil, landscape y escritorio
+
+Backend, BD, firmware y contratos API permanecen fuera de estos cambios.
