@@ -158,7 +158,7 @@ def main(page: ft.Page):
         page.show_dialog(
             ft.AlertDialog(
                 title=ft.Text(
-                    "Tu tramo · Línea 2", color=INK, weight=ft.FontWeight.W_700
+                    "Línea 2 completa", color=INK, weight=ft.FontWeight.W_700
                 ),
                 bgcolor=WHITE,
                 scrollable=True,
@@ -166,7 +166,7 @@ def main(page: ft.Page):
                     tight=True,
                     spacing=8,
                     controls=[
-                        ft.Text("Buenavista a Bello Horizonte", size=13, color=MUTED),
+                        ft.Text("La Quebrada a Las Américas · 43 estaciones", size=13, color=MUTED),
                         *[
                             ft.TextButton(
                                 content=station["name"],
