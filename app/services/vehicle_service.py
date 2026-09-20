@@ -214,9 +214,9 @@ class VehicleService:
         lat, lon = self.coordinate_at_progress(progress_m)
 
         direction_label = (
-            "Buenavista → Bello Horizonte"
+            "La Quebrada → Las Américas"
             if direction == 1
-            else "Bello Horizonte → Buenavista"
+            else "Las Américas → La Quebrada"
         )
 
         return VehicleSnapshot(
