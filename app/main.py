@@ -1,9 +1,10 @@
-import asyncio
 import json
 from pathlib import Path
 
 import flet as ft
 import flet_map as ftm
+
+from services import VehicleService
 
 
 # =====================================
@@ -17,10 +18,6 @@ GEOJSON_PATH = (
     / "mexibus_l2_buenavista_bandera_bello_horizonte.geojson"
 )
 
-# Qué tan suave se ve la simulación.
-INTERPOLATION_STEPS = 20
-UPDATE_INTERVAL_SECONDS = 0.15
-
 
 def load_geography():
     """Carga la ruta y las estaciones desde el GeoJSON del proyecto."""
@@ -33,8 +30,6 @@ def load_geography():
         if feature.get("geometry", {}).get("type") == "LineString"
     )
 
-    # GeoJSON usa [longitud, latitud]. Para trabajar en la app lo
-    # convertimos a pares (latitud, longitud).
     route_coordinates = [
         (lat, lon)
         for lon, lat in route_feature["geometry"]["coordinates"]
@@ -70,17 +65,15 @@ def load_geography():
     return route_feature, route_coordinates, route_points, stations
 
 
-def interpolate(start, end, steps):
-    """Genera posiciones intermedias entre dos puntos de la ruta."""
-    start_lat, start_lon = start
-    end_lat, end_lon = end
+def format_eta(seconds):
+    seconds = max(0, int(round(seconds)))
 
-    for step in range(steps):
-        progress = step / steps
-        yield (
-            start_lat + (end_lat - start_lat) * progress,
-            start_lon + (end_lon - start_lon) * progress,
-        )
+    if seconds < 60:
+        return f"{seconds} s"
+
+    minutes = seconds // 60
+    remaining_seconds = seconds % 60
+    return f"{minutes} min {remaining_seconds:02d} s"
 
 
 def main(page: ft.Page):
@@ -94,10 +87,25 @@ def main(page: ft.Page):
         stations,
     ) = load_geography()
 
+    vehicle_service = VehicleService(route_coordinates=route_coordinates)
+
     station_by_name = {station["name"]: station for station in stations}
     bandera = station_by_name["Bandera Tultitlán"]
 
-    # La simulación comienza al inicio del tramo real: Buenavista.
+    station_progress = []
+    for station in stations:
+        station_progress.append(
+            {
+                **station,
+                "progress_m": vehicle_service.project_point_to_route(
+                    station["lat"],
+                    station["lon"],
+                ),
+            }
+        )
+
+    station_progress.sort(key=lambda station: station["progress_m"])
+
     bus_lat, bus_lon = route_coordinates[0]
 
     route_layer = ftm.PolylineLayer(
@@ -172,13 +180,17 @@ def main(page: ft.Page):
 
     distance_km = (
         route_feature.get("properties", {})
-        .get("distance_m_approx", 0)
+        .get("distance_m_approx", vehicle_service.route_length_m)
         / 1000
     )
 
+    vehicle_text = ft.Text(f"Unidad: {vehicle_service.vehicle_id}")
     latitude_text = ft.Text(f"Latitud: {bus_lat:.7f}")
     longitude_text = ft.Text(f"Longitud: {bus_lon:.7f}")
-    status_text = ft.Text("Estado: Iniciando simulación...")
+    next_station_text = ft.Text("Próxima estación: --")
+    eta_text = ft.Text("ETA simulada: --")
+    saturation_text = ft.Text("Saturación: --")
+    status_text = ft.Text("Estado: esperando datos del servicio...")
 
     page.add(
         ft.Column(
@@ -212,11 +224,12 @@ def main(page: ft.Page):
                             ft.Text(
                                 f"Distancia aproximada: {distance_km:.2f} km"
                             ),
-                            ft.Text("Unidad: demo-unit-01"),
+                            vehicle_text,
                             latitude_text,
                             longitude_text,
-                            ft.Text("Llegada: --"),
-                            ft.Text("Saturación: --"),
+                            next_station_text,
+                            eta_text,
+                            saturation_text,
                             status_text,
                         ],
                     ),
@@ -225,54 +238,66 @@ def main(page: ft.Page):
         )
     )
 
-    async def animate_bus():
-        """Mueve continuamente la unidad sobre la polilínea real."""
-        direction = 1
+    def update_next_station(progress_m, direction, speed_mps):
+        tolerance_m = 15.0
 
-        while True:
-            if direction == 1:
-                points = route_coordinates
-                status = "Simulación: Buenavista → Bello Horizonte"
-            else:
-                points = list(reversed(route_coordinates))
-                status = "Simulación: Bello Horizonte → Buenavista"
+        if direction == 1:
+            candidates = [
+                station
+                for station in station_progress
+                if station["progress_m"] > progress_m + tolerance_m
+            ]
+        else:
+            candidates = [
+                station
+                for station in reversed(station_progress)
+                if station["progress_m"] < progress_m - tolerance_m
+            ]
 
-            status_text.value = f"Estado: {status}"
-            page.update()
+        if not candidates:
+            next_station_text.value = "Próxima estación: Terminal del tramo"
+            eta_text.value = "ETA simulada: 0 s"
+            return
 
-            for index in range(len(points) - 1):
-                start = points[index]
-                end = points[index + 1]
+        target = candidates[0]
+        remaining_m = abs(target["progress_m"] - progress_m)
 
-                for lat, lon in interpolate(
-                    start,
-                    end,
-                    INTERPOLATION_STEPS,
-                ):
-                    bus_marker.coordinates = ftm.MapLatitudeLongitude(
-                        latitude=lat,
-                        longitude=lon,
-                    )
-                    latitude_text.value = f"Latitud: {lat:.7f}"
-                    longitude_text.value = f"Longitud: {lon:.7f}"
-
-                    page.update()
-                    await asyncio.sleep(UPDATE_INTERVAL_SECONDS)
-
-            # Asegura que el bus llegue exactamente al último punto.
-            final_lat, final_lon = points[-1]
-            bus_marker.coordinates = ftm.MapLatitudeLongitude(
-                latitude=final_lat,
-                longitude=final_lon,
+        if speed_mps <= 0:
+            eta_text.value = "ETA simulada: --"
+        else:
+            eta_text.value = (
+                f"ETA simulada: {format_eta(remaining_m / speed_mps)}"
             )
-            latitude_text.value = f"Latitud: {final_lat:.7f}"
-            longitude_text.value = f"Longitud: {final_lon:.7f}"
+
+        next_station_text.value = f"Próxima estación: {target['name']}"
+
+    async def consume_vehicle_data():
+        """La interfaz solo consume estados; no controla la simulación."""
+        async for snapshot in vehicle_service.stream():
+            bus_marker.coordinates = ftm.MapLatitudeLongitude(
+                latitude=snapshot.lat,
+                longitude=snapshot.lon,
+            )
+
+            vehicle_text.value = f"Unidad: {snapshot.vehicle_id}"
+            latitude_text.value = f"Latitud: {snapshot.lat:.7f}"
+            longitude_text.value = f"Longitud: {snapshot.lon:.7f}"
+            saturation_text.value = (
+                f"Saturación: {snapshot.occupancy_level}"
+            )
+            status_text.value = (
+                f"Estado: {snapshot.status} | {snapshot.direction_label}"
+            )
+
+            update_next_station(
+                snapshot.progress_m,
+                snapshot.direction,
+                snapshot.speed_mps,
+            )
+
             page.update()
 
-            await asyncio.sleep(1)
-            direction *= -1
-
-    page.run_task(animate_bus)
+    page.run_task(consume_vehicle_data)
 
 
 if __name__ == "__main__":
