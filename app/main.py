@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 
@@ -16,6 +17,10 @@ GEOJSON_PATH = (
     / "mexibus_l2_buenavista_bandera_bello_horizonte.geojson"
 )
 
+# Qué tan suave se ve la simulación.
+INTERPOLATION_STEPS = 20
+UPDATE_INTERVAL_SECONDS = 0.15
+
 
 def load_geography():
     """Carga la ruta y las estaciones desde el GeoJSON del proyecto."""
@@ -28,9 +33,16 @@ def load_geography():
         if feature.get("geometry", {}).get("type") == "LineString"
     )
 
+    # GeoJSON usa [longitud, latitud]. Para trabajar en la app lo
+    # convertimos a pares (latitud, longitud).
+    route_coordinates = [
+        (lat, lon)
+        for lon, lat in route_feature["geometry"]["coordinates"]
+    ]
+
     route_points = [
         ftm.MapLatitudeLongitude(latitude=lat, longitude=lon)
-        for lon, lat in route_feature["geometry"]["coordinates"]
+        for lat, lon in route_coordinates
     ]
 
     stations = []
@@ -55,22 +67,38 @@ def load_geography():
             }
         )
 
-    return route_feature, route_points, stations
+    return route_feature, route_coordinates, route_points, stations
+
+
+def interpolate(start, end, steps):
+    """Genera posiciones intermedias entre dos puntos de la ruta."""
+    start_lat, start_lon = start
+    end_lat, end_lon = end
+
+    for step in range(steps):
+        progress = step / steps
+        yield (
+            start_lat + (end_lat - start_lat) * progress,
+            start_lon + (end_lon - start_lon) * progress,
+        )
 
 
 def main(page: ft.Page):
     page.title = "Zentryx"
     page.padding = 0
 
-    route_feature, route_points, stations = load_geography()
+    (
+        route_feature,
+        route_coordinates,
+        route_points,
+        stations,
+    ) = load_geography()
 
     station_by_name = {station["name"]: station for station in stations}
     bandera = station_by_name["Bandera Tultitlán"]
 
-    # Por ahora la unidad sigue siendo simulada, pero ya está colocada
-    # sobre una estación y una ruta reales de OpenStreetMap.
-    bus_lat = bandera["lat"]
-    bus_lon = bandera["lon"]
+    # La simulación comienza al inicio del tramo real: Buenavista.
+    bus_lat, bus_lon = route_coordinates[0]
 
     route_layer = ftm.PolylineLayer(
         polylines=[
@@ -137,12 +165,8 @@ def main(page: ft.Page):
                 user_agent_package_name="zentryx/1.0",
             ),
             route_layer,
-            ftm.MarkerLayer(
-                markers=station_markers + [bus_marker]
-            ),
-            ftm.SimpleAttribution(
-                text="OpenStreetMap contributors"
-            ),
+            ftm.MarkerLayer(markers=station_markers + [bus_marker]),
+            ftm.SimpleAttribution(text="OpenStreetMap contributors"),
         ],
     )
 
@@ -151,6 +175,10 @@ def main(page: ft.Page):
         .get("distance_m_approx", 0)
         / 1000
     )
+
+    latitude_text = ft.Text(f"Latitud: {bus_lat:.7f}")
+    longitude_text = ft.Text(f"Longitud: {bus_lon:.7f}")
+    status_text = ft.Text("Estado: Iniciando simulación...")
 
     page.add(
         ft.Column(
@@ -185,17 +213,66 @@ def main(page: ft.Page):
                                 f"Distancia aproximada: {distance_km:.2f} km"
                             ),
                             ft.Text("Unidad: demo-unit-01"),
-                            ft.Text(f"Latitud: {bus_lat:.7f}"),
-                            ft.Text(f"Longitud: {bus_lon:.7f}"),
+                            latitude_text,
+                            longitude_text,
                             ft.Text("Llegada: --"),
                             ft.Text("Saturación: --"),
-                            ft.Text("Estado: Simulación sobre ruta real"),
+                            status_text,
                         ],
                     ),
                 ),
             ],
         )
     )
+
+    async def animate_bus():
+        """Mueve continuamente la unidad sobre la polilínea real."""
+        direction = 1
+
+        while True:
+            if direction == 1:
+                points = route_coordinates
+                status = "Simulación: Buenavista → Bello Horizonte"
+            else:
+                points = list(reversed(route_coordinates))
+                status = "Simulación: Bello Horizonte → Buenavista"
+
+            status_text.value = f"Estado: {status}"
+            page.update()
+
+            for index in range(len(points) - 1):
+                start = points[index]
+                end = points[index + 1]
+
+                for lat, lon in interpolate(
+                    start,
+                    end,
+                    INTERPOLATION_STEPS,
+                ):
+                    bus_marker.coordinates = ftm.MapLatitudeLongitude(
+                        latitude=lat,
+                        longitude=lon,
+                    )
+                    latitude_text.value = f"Latitud: {lat:.7f}"
+                    longitude_text.value = f"Longitud: {lon:.7f}"
+
+                    page.update()
+                    await asyncio.sleep(UPDATE_INTERVAL_SECONDS)
+
+            # Asegura que el bus llegue exactamente al último punto.
+            final_lat, final_lon = points[-1]
+            bus_marker.coordinates = ftm.MapLatitudeLongitude(
+                latitude=final_lat,
+                longitude=final_lon,
+            )
+            latitude_text.value = f"Latitud: {final_lat:.7f}"
+            longitude_text.value = f"Longitud: {final_lon:.7f}"
+            page.update()
+
+            await asyncio.sleep(1)
+            direction *= -1
+
+    page.run_task(animate_bus)
 
 
 if __name__ == "__main__":
