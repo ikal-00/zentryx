@@ -1,4 +1,5 @@
 import asyncio
+import bisect
 import math
 from dataclasses import dataclass
 from typing import AsyncIterator
@@ -17,14 +18,19 @@ class VehicleSnapshot:
     direction_label: str
     progress_m: float
     route_length_m: float
+    heading_deg: float
 
 
 class VehicleService:
     """Fuente de datos de vehículos para la app.
 
-    Hoy genera datos simulados sobre la ruta. Más adelante esta clase podrá
-    sustituir la simulación por llamadas a GET /v1/vehicles/{vehicle_id}
-    sin obligar a reescribir la interfaz del mapa.
+    Hoy genera datos simulados sobre la ruta. El movimiento se calcula por
+    distancia recorrida (m/s), no por una cantidad fija de pasos por segmento,
+    para que la velocidad visual sea constante incluso cuando los puntos del
+    GeoJSON están separados por distancias diferentes.
+
+    Más adelante esta clase podrá sustituirse por llamadas a la API sin obligar
+    a reescribir la interfaz del mapa.
     """
 
     def __init__(
@@ -33,8 +39,8 @@ class VehicleService:
         vehicle_id: str = "demo-unit-01",
         route_id: str = "route-l2",
         speed_mps: float = 8.0,
-        interpolation_steps: int = 20,
-        update_interval_seconds: float = 0.15,
+        update_interval_seconds: float = 0.08,
+        terminal_pause_seconds: float = 1.0,
     ):
         if len(route_coordinates) < 2:
             raise ValueError("La ruta necesita al menos dos coordenadas")
@@ -43,14 +49,17 @@ class VehicleService:
         self.vehicle_id = vehicle_id
         self.route_id = route_id
         self.speed_mps = speed_mps
-        self.interpolation_steps = interpolation_steps
         self.update_interval_seconds = update_interval_seconds
+        self.terminal_pause_seconds = terminal_pause_seconds
 
         self.cumulative_distances = self._build_route_distances()
         self.route_length_m = self.cumulative_distances[-1]
 
     @staticmethod
-    def haversine_m(point_a: tuple[float, float], point_b: tuple[float, float]) -> float:
+    def haversine_m(
+        point_a: tuple[float, float],
+        point_b: tuple[float, float],
+    ) -> float:
         lat1, lon1 = point_a
         lat2, lon2 = point_b
 
@@ -67,7 +76,28 @@ class VehicleService:
             * math.sin(delta_lambda / 2) ** 2
         )
 
-        return 2 * radius_m * math.atan2(math.sqrt(value), math.sqrt(1 - value))
+        return 2 * radius_m * math.atan2(
+            math.sqrt(value),
+            math.sqrt(1 - value),
+        )
+
+    @staticmethod
+    def bearing_deg(
+        point_a: tuple[float, float],
+        point_b: tuple[float, float],
+    ) -> float:
+        """Rumbo de A hacia B en grados: 0=N, 90=E, 180=S, 270=O."""
+        lat1, lon1 = map(math.radians, point_a)
+        lat2, lon2 = map(math.radians, point_b)
+
+        delta_lon = lon2 - lon1
+        x = math.sin(delta_lon) * math.cos(lat2)
+        y = (
+            math.cos(lat1) * math.sin(lat2)
+            - math.sin(lat1) * math.cos(lat2) * math.cos(delta_lon)
+        )
+
+        return (math.degrees(math.atan2(x, y)) + 360.0) % 360.0
 
     def _build_route_distances(self) -> list[float]:
         cumulative = [0.0]
@@ -80,6 +110,60 @@ class VehicleService:
             cumulative.append(cumulative[-1] + segment_distance)
 
         return cumulative
+
+    def coordinate_at_progress(self, progress_m: float) -> tuple[float, float]:
+        """Devuelve una coordenada interpolada a una distancia dada de la ruta."""
+        progress_m = max(0.0, min(self.route_length_m, progress_m))
+
+        if progress_m <= 0:
+            return self.route_coordinates[0]
+        if progress_m >= self.route_length_m:
+            return self.route_coordinates[-1]
+
+        index = bisect.bisect_right(
+            self.cumulative_distances,
+            progress_m,
+        ) - 1
+        index = max(0, min(index, len(self.route_coordinates) - 2))
+
+        start_distance = self.cumulative_distances[index]
+        end_distance = self.cumulative_distances[index + 1]
+        segment_distance = end_distance - start_distance
+
+        if segment_distance <= 0:
+            return self.route_coordinates[index]
+
+        fraction = (progress_m - start_distance) / segment_distance
+        start_lat, start_lon = self.route_coordinates[index]
+        end_lat, end_lon = self.route_coordinates[index + 1]
+
+        return (
+            start_lat + (end_lat - start_lat) * fraction,
+            start_lon + (end_lon - start_lon) * fraction,
+        )
+
+    def heading_at_progress(self, progress_m: float, direction: int) -> float:
+        """Calcula el rumbo usando dos puntos cercanos sobre la propia ruta."""
+        lookahead_m = 8.0
+
+        if direction == 1:
+            start_progress = progress_m
+            end_progress = min(self.route_length_m, progress_m + lookahead_m)
+            if end_progress == start_progress:
+                start_progress = max(0.0, progress_m - lookahead_m)
+        else:
+            start_progress = progress_m
+            end_progress = max(0.0, progress_m - lookahead_m)
+            if end_progress == start_progress:
+                start_progress = min(
+                    self.route_length_m,
+                    progress_m + lookahead_m,
+                )
+
+        return self.bearing_deg(
+            self.coordinate_at_progress(start_progress),
+            self.coordinate_at_progress(end_progress),
+        )
 
     def project_point_to_route(self, lat: float, lon: float) -> float:
         """Devuelve la distancia acumulada del punto más cercano sobre la ruta."""
@@ -126,89 +210,63 @@ class VehicleService:
 
         return best_progress_m
 
-    def _interpolate(self, start, end):
-        start_lat, start_lon = start
-        end_lat, end_lon = end
+    def _snapshot(self, progress_m: float, direction: int, speed_mps: float):
+        lat, lon = self.coordinate_at_progress(progress_m)
 
-        for step in range(self.interpolation_steps):
-            fraction = step / self.interpolation_steps
-            yield fraction, (
-                start_lat + (end_lat - start_lat) * fraction,
-                start_lon + (end_lon - start_lon) * fraction,
-            )
+        direction_label = (
+            "Buenavista → Bello Horizonte"
+            if direction == 1
+            else "Bello Horizonte → Buenavista"
+        )
+
+        return VehicleSnapshot(
+            vehicle_id=self.vehicle_id,
+            route_id=self.route_id,
+            status="online",
+            lat=lat,
+            lon=lon,
+            speed_mps=speed_mps,
+            occupancy_level="unknown",
+            direction=direction,
+            direction_label=direction_label,
+            progress_m=progress_m,
+            route_length_m=self.route_length_m,
+            heading_deg=self.heading_at_progress(progress_m, direction),
+        )
 
     async def stream(self) -> AsyncIterator[VehicleSnapshot]:
-        """Emite estados simulados del vehículo de forma continua."""
+        """Emite posiciones a velocidad constante sobre la distancia de la ruta."""
         direction = 1
+        progress_m = 0.0
 
         while True:
-            if direction == 1:
-                segment_indexes = range(len(self.route_coordinates) - 1)
-                direction_label = "Buenavista → Bello Horizonte"
-            else:
-                segment_indexes = range(len(self.route_coordinates) - 1, 0, -1)
-                direction_label = "Bello Horizonte → Buenavista"
-
-            for index in segment_indexes:
-                if direction == 1:
-                    start = self.route_coordinates[index]
-                    end = self.route_coordinates[index + 1]
-                    segment_start_progress = self.cumulative_distances[index]
-                    segment_distance = (
-                        self.cumulative_distances[index + 1]
-                        - self.cumulative_distances[index]
-                    )
-                else:
-                    start = self.route_coordinates[index]
-                    end = self.route_coordinates[index - 1]
-                    segment_start_progress = self.cumulative_distances[index]
-                    segment_distance = (
-                        self.cumulative_distances[index]
-                        - self.cumulative_distances[index - 1]
-                    )
-
-                for fraction, (lat, lon) in self._interpolate(start, end):
-                    if direction == 1:
-                        progress_m = segment_start_progress + fraction * segment_distance
-                    else:
-                        progress_m = segment_start_progress - fraction * segment_distance
-
-                    yield VehicleSnapshot(
-                        vehicle_id=self.vehicle_id,
-                        route_id=self.route_id,
-                        status="online",
-                        lat=lat,
-                        lon=lon,
-                        speed_mps=self.speed_mps,
-                        occupancy_level="unknown",
-                        direction=direction,
-                        direction_label=direction_label,
-                        progress_m=progress_m,
-                        route_length_m=self.route_length_m,
-                    )
-
-                    await asyncio.sleep(self.update_interval_seconds)
-
-            final_lat, final_lon = (
-                self.route_coordinates[-1]
-                if direction == 1
-                else self.route_coordinates[0]
-            )
-            final_progress_m = self.route_length_m if direction == 1 else 0.0
-
-            yield VehicleSnapshot(
-                vehicle_id=self.vehicle_id,
-                route_id=self.route_id,
-                status="online",
-                lat=final_lat,
-                lon=final_lon,
-                speed_mps=0.0,
-                occupancy_level="unknown",
+            yield self._snapshot(
+                progress_m=progress_m,
                 direction=direction,
-                direction_label=direction_label,
-                progress_m=final_progress_m,
-                route_length_m=self.route_length_m,
+                speed_mps=self.speed_mps,
             )
 
-            await asyncio.sleep(1)
-            direction *= -1
+            await asyncio.sleep(self.update_interval_seconds)
+
+            distance_step = self.speed_mps * self.update_interval_seconds
+            progress_m += distance_step * direction
+
+            reached_terminal = (
+                direction == 1 and progress_m >= self.route_length_m
+            ) or (
+                direction == -1 and progress_m <= 0.0
+            )
+
+            if reached_terminal:
+                progress_m = (
+                    self.route_length_m if direction == 1 else 0.0
+                )
+
+                yield self._snapshot(
+                    progress_m=progress_m,
+                    direction=direction,
+                    speed_mps=0.0,
+                )
+
+                await asyncio.sleep(self.terminal_pause_seconds)
+                direction *= -1
