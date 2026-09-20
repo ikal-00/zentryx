@@ -77,8 +77,13 @@ class FrontendTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_station_selection_and_return_to_vehicle(self):
         markers = self.map.layers[2].markers
+        bandera_marker = next(
+            marker
+            for marker in markers[:-1]
+            if marker.content.content.tooltip == "Bandera Tultitlán"
+        )
         with patch.object(ftm.Map, "move_to", new_callable=AsyncMock):
-            await markers[1].content.content.on_click(None)
+            await bandera_marker.content.content.on_click(None)
             self.assertEqual(self.badge.value, "Exploración libre")
             selected = next(
                 c
@@ -136,8 +141,8 @@ class FrontendTests(unittest.IsolatedAsyncioTestCase):
             ],
             key=lambda s: s["progress_m"],
         )
-        self.assertEqual(main.next_arrival(stations, 100, 1, 8)[0], "Bandera Tultitlán")
-        self.assertEqual(main.next_arrival(stations, 100, -1, 8)[0], "Buenavista")
+        self.assertEqual(main.next_arrival(stations, 100, 1, 8)[0], "Lechería")
+        self.assertEqual(main.next_arrival(stations, 100, -1, 8)[0], "La Quebrada")
         self.assertIsNone(main.next_arrival(stations, 100, 1, 0)[1])
         self.assertEqual(
             main.next_arrival(stations, service.route_length_m, 1, 8),
@@ -166,7 +171,11 @@ class FrontendTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(card.status.value, "Datos de demostración")
 
     def test_geography_and_responsive_sizes(self):
-        self.assertEqual(len(self.map.layers[2].markers), 4)
+        _, _, _, stations = main.load_geography()
+        self.assertEqual(len(stations), 43)
+        self.assertEqual(stations[0]["name"], "La Quebrada")
+        self.assertEqual(stations[-1]["name"], "Las Américas")
+        self.assertEqual(len(self.map.layers[2].markers), 44)
         self.assertTrue(
             self.map.layers[0].url_template.startswith(
                 "https://tile.openstreetmap.org/"
