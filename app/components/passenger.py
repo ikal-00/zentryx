@@ -17,7 +17,7 @@ def pill(value, bgcolor=SOFT, color=INK):
     )
 
 
-def top_bar(on_route):
+def top_bar(on_route, line_label="L2", network_name="Mexibús"):
     return ft.Container(
         padding=ft.Padding.symmetric(horizontal=20, vertical=14),
         bgcolor=PAPER,
@@ -47,14 +47,14 @@ def top_bar(on_route):
                         spacing=6,
                         tight=True,
                         controls=[
-                            pill("L2", ACCENT),
-                            ft.Text("Mexibús", color=INK, size=13),
+                            pill(line_label, ACCENT),
+                            ft.Text(network_name, color=INK, size=13),
                             ft.Icon(
                                 ft.Icons.KEYBOARD_ARROW_DOWN_ROUNDED, color=INK, size=18
                             ),
                         ],
                     ),
-                    tooltip="Ver estaciones del tramo",
+                    tooltip="Ver estaciones del servicio",
                     on_click=on_route,
                     style=ft.ButtonStyle(padding=8),
                 ),
@@ -114,7 +114,7 @@ class MapControls:
 
 
 class PassengerCard:
-    def __init__(self, on_close_station):
+    def __init__(self, on_close_station, line_label="L2"):
         self.vehicle = ft.Text(
             "Esperando unidad",
             size=18,
@@ -209,7 +209,7 @@ class PassengerCard:
                         ft.Column(
                             expand=True,
                             spacing=4,
-                            controls=[label("ESTACIÓN · LÍNEA 2"), self.selected_name],
+                            controls=[label(f"ESTACIÓN · {line_label}"), self.selected_name],
                         ),
                         ft.Semantics(
                             label="Volver a la unidad",

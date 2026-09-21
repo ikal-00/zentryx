@@ -29,18 +29,20 @@ class VehicleService:
     para que la velocidad visual sea constante incluso cuando los puntos del
     GeoJSON están separados por distancias diferentes.
 
-    Más adelante esta clase podrá sustituirse por llamadas a la API sin obligar
-    a reescribir la interfaz del mapa.
+    La identidad de la ruta y sus etiquetas de dirección se inyectan desde la
+    definición de servicio, así esta clase no depende de Línea 2.
     """
 
     def __init__(
         self,
         route_coordinates: list[tuple[float, float]],
         vehicle_id: str = "demo-unit-01",
-        route_id: str = "route-l2",
+        route_id: str = "route-demo",
         speed_mps: float = 8.0,
         update_interval_seconds: float = 0.08,
         terminal_pause_seconds: float = 1.0,
+        forward_direction_label: str = "Ida",
+        reverse_direction_label: str = "Vuelta",
     ):
         if len(route_coordinates) < 2:
             raise ValueError("La ruta necesita al menos dos coordenadas")
@@ -51,6 +53,8 @@ class VehicleService:
         self.speed_mps = speed_mps
         self.update_interval_seconds = update_interval_seconds
         self.terminal_pause_seconds = terminal_pause_seconds
+        self.forward_direction_label = forward_direction_label
+        self.reverse_direction_label = reverse_direction_label
 
         self.cumulative_distances = self._build_route_distances()
         self.route_length_m = self.cumulative_distances[-1]
@@ -212,11 +216,10 @@ class VehicleService:
 
     def _snapshot(self, progress_m: float, direction: int, speed_mps: float):
         lat, lon = self.coordinate_at_progress(progress_m)
-
         direction_label = (
-            "Buenavista → Bello Horizonte"
+            self.forward_direction_label
             if direction == 1
-            else "Bello Horizonte → Buenavista"
+            else self.reverse_direction_label
         )
 
         return VehicleSnapshot(

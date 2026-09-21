@@ -1,64 +1,40 @@
-import json
 import logging
 import math
-from pathlib import Path
+import time
 
 import flet as ft
 import flet_map as ftm
 from components.passenger import AlertBanner, MapControls, PassengerCard, top_bar
-from services import VehicleService
+from services import VehicleService, load_route
 from theme import ACCENT, CARD_WIDTH, INK, MUTED, SOFT, WHITE, configure, shadow
 
-GEOJSON_PATH = (
-    Path(__file__).parent
-    / "assets"
-    / "mexibus_l2_buenavista_bandera_bello_horizonte.geojson"
-)
+
+ACTIVE_SERVICE_ID = "l2-ordinary"
 FOLLOW_ZOOM = 16.5
-FOLLOW_EVERY_N_SNAPSHOTS = 6
+FOLLOW_CAMERA_INTERVAL_SECONDS = 0.85
+FOLLOW_MIN_DISTANCE_M = 4.0
+FOLLOW_ANIMATION_MS = 420
 
 
 def load_geography():
-    """Carga la ruta y las estaciones desde el GeoJSON del proyecto."""
-    with GEOJSON_PATH.open("r", encoding="utf-8") as file:
-        data = json.load(file)
-
-    route_feature = next(
-        feature
-        for feature in data["features"]
-        if feature.get("geometry", {}).get("type") == "LineString"
-    )
-
-    route_coordinates = [
-        (lat, lon) for lon, lat in route_feature["geometry"]["coordinates"]
-    ]
-
+    """Carga la variante activa y conserva el formato que usa el frontend."""
+    route = load_route(ACTIVE_SERVICE_ID)
+    route_coordinates = list(route.coordinates)
     route_points = [
         ftm.MapLatitudeLongitude(latitude=lat, longitude=lon)
         for lat, lon in route_coordinates
     ]
-
-    stations = []
-    for feature in data["features"]:
-        if feature.get("geometry", {}).get("type") != "Point":
-            continue
-
-        lon, lat = feature["geometry"]["coordinates"]
-        raw_name = feature.get("properties", {}).get("name", "Estación")
-
-        display_name = (
-            "Bandera Tultitlán" if raw_name == "Bandera Tultitlan" else raw_name
-        )
-
-        stations.append(
-            {
-                "name": display_name,
-                "lat": lat,
-                "lon": lon,
-            }
-        )
-
-    return route_feature, route_coordinates, route_points, stations
+    stations = [
+        {
+            "station_id": station.station_id,
+            "name": station.name,
+            "stop_order": station.stop_order,
+            "lat": station.lat,
+            "lon": station.lon,
+        }
+        for station in route.stations
+    ]
+    return route, route_coordinates, route_points, stations
 
 
 def format_eta(seconds):
@@ -71,7 +47,7 @@ def format_eta(seconds):
 
 
 def next_arrival(stations, progress_m, direction, speed_mps):
-    # Same route projection, 15 m tolerance and distance/speed as the original.
+    """Usa stop_order como secuencia oficial; progress solo decide si ya pasó."""
     ordered = stations if direction == 1 else reversed(stations)
     candidates = [
         station
@@ -80,38 +56,61 @@ def next_arrival(stations, progress_m, direction, speed_mps):
     ]
     if not candidates:
         return "Terminal del tramo", 0
+
     target = candidates[0]
     seconds = (
-        abs(target["progress_m"] - progress_m) / speed_mps if speed_mps > 0 else None
+        abs(target["progress_m"] - progress_m) / speed_mps
+        if speed_mps > 0
+        else None
     )
     return target["name"], seconds
 
 
+def unwrap_heading_radians(previous_rotation, heading_deg):
+    """Mantiene la rotación continua y evita 359° -> 1° por la vuelta larga."""
+    previous_rotation = float(previous_rotation or 0.0)
+    target = math.radians(heading_deg) % math.tau
+    previous_normalized = previous_rotation % math.tau
+    delta = (target - previous_normalized + math.pi) % math.tau - math.pi
+    return previous_rotation + delta
+
+
 def main(page: ft.Page):
     configure(page)
-    _, route_coordinates, route_points, stations = load_geography()
-    vehicle_service = VehicleService(route_coordinates=route_coordinates)
+    route, route_coordinates, route_points, stations = load_geography()
+
+    vehicle_service = VehicleService(
+        route_coordinates=route_coordinates,
+        route_id=route.route_id,
+        forward_direction_label=route.forward_label,
+        reverse_direction_label=route.reverse_label,
+    )
+
     # Existing service is a demo source. Change this only when its real adapter lands.
     demo_source = True
-    station_progress = sorted(
-        [
-            {
-                **station,
-                "progress_m": vehicle_service.project_point_to_route(
-                    station["lat"], station["lon"]
-                ),
-            }
-            for station in stations
-        ],
-        key=lambda station: station["progress_m"],
-    )
+
+    # Mantener stop_order como la fuente de verdad. La proyección solo agrega la
+    # posición métrica necesaria para la demo actual y el cálculo local de ETA.
+    station_progress = [
+        {
+            **station,
+            "progress_m": vehicle_service.project_point_to_route(
+                station["lat"],
+                station["lon"],
+            ),
+        }
+        for station in stations
+    ]
+
     bus_lat, bus_lon = route_coordinates[0]
     map_state = {
         "follow_vehicle": True,
         "latest_lat": bus_lat,
         "latest_lon": bus_lon,
-        "snapshot_count": 0,
         "ready": False,
+        "last_follow_at": 0.0,
+        "last_follow_lat": bus_lat,
+        "last_follow_lon": bus_lon,
     }
     station_buttons = {}
 
@@ -134,7 +133,7 @@ def main(page: ft.Page):
             await mapa.move_to(
                 destination=ftm.MapLatitudeLongitude(latitude=lat, longitude=lon),
                 zoom=zoom,
-                animation_duration=ft.Duration(milliseconds=430),
+                animation_duration=ft.Duration(milliseconds=FOLLOW_ANIMATION_MS),
                 animation_curve=ft.AnimationCurve.EASE_OUT_CUBIC,
                 cancel_ongoing_animations=True,
             )
@@ -158,7 +157,9 @@ def main(page: ft.Page):
         page.show_dialog(
             ft.AlertDialog(
                 title=ft.Text(
-                    "Tu tramo · Línea 2", color=INK, weight=ft.FontWeight.W_700
+                    f"{route.line_label} · {route.service_name}",
+                    color=INK,
+                    weight=ft.FontWeight.W_700,
                 ),
                 bgcolor=WHITE,
                 scrollable=True,
@@ -166,22 +167,36 @@ def main(page: ft.Page):
                     tight=True,
                     spacing=8,
                     controls=[
-                        ft.Text("Buenavista a Bello Horizonte", size=13, color=MUTED),
+                        ft.Text(
+                            f"{route.origin_name} a {route.destination_name} · "
+                            f"{route.station_count} estaciones",
+                            size=13,
+                            color=MUTED,
+                        ),
                         *[
                             ft.TextButton(
                                 content=station["name"],
                                 icon=ft.Icons.TRIP_ORIGIN_ROUNDED,
                                 height=52,
-                                on_click=station_handler(station, from_dialog=True),
+                                on_click=station_handler(
+                                    station,
+                                    from_dialog=True,
+                                ),
                                 style=ft.ButtonStyle(
-                                    color=INK, alignment=ft.Alignment.CENTER_LEFT
+                                    color=INK,
+                                    alignment=ft.Alignment.CENTER_LEFT,
                                 ),
                             )
                             for station in station_progress
                         ],
                     ],
                 ),
-                actions=[ft.TextButton("Cerrar", on_click=lambda e: page.pop_dialog())],
+                actions=[
+                    ft.TextButton(
+                        "Cerrar",
+                        on_click=lambda event: page.pop_dialog(),
+                    )
+                ],
             )
         )
 
@@ -193,7 +208,10 @@ def main(page: ft.Page):
                     content=ft.Text(alerts.alert["message"]),
                     scrollable=True,
                     actions=[
-                        ft.TextButton("Entendido", on_click=lambda e: page.pop_dialog())
+                        ft.TextButton(
+                            "Entendido",
+                            on_click=lambda event: page.pop_dialog(),
+                        )
                     ],
                 )
             )
@@ -203,7 +221,13 @@ def main(page: ft.Page):
         card.select_station()
         highlight_station()
         page.update()
-        await move_camera(map_state["latest_lat"], map_state["latest_lon"])
+        await move_camera(
+            map_state["latest_lat"],
+            map_state["latest_lon"],
+        )
+        map_state["last_follow_at"] = time.monotonic()
+        map_state["last_follow_lat"] = map_state["latest_lat"]
+        map_state["last_follow_lon"] = map_state["latest_lon"]
 
     async def handle_map_position_change(e):
         if e.has_gesture and map_state["follow_vehicle"]:
@@ -214,8 +238,9 @@ def main(page: ft.Page):
         map_state["ready"] = True
 
     controls = MapControls(center_on_vehicle)
-    card = PassengerCard(close_station)
+    card = PassengerCard(close_station, line_label=route.line_label)
     alerts = AlertBanner(show_alert)
+
     # Future adapter may supply an active /v1/alerts item via alerts.set_alert().
     # No request, fabricated alert or empty "all clear" state is generated here.
     route_layer = ftm.PolylineLayer(
@@ -229,6 +254,7 @@ def main(page: ft.Page):
             )
         ]
     )
+
     station_markers = []
     for station in stations:
         button = ft.IconButton(
@@ -240,13 +266,17 @@ def main(page: ft.Page):
             height=48,
             tooltip=station["name"],
             on_click=station_handler(station),
-            style=ft.ButtonStyle(side=ft.BorderSide(2, INK), shape=ft.CircleBorder()),
+            style=ft.ButtonStyle(
+                side=ft.BorderSide(2, INK),
+                shape=ft.CircleBorder(),
+            ),
         )
         station_buttons[station["name"]] = button
         station_markers.append(
             ftm.Marker(
                 coordinates=ftm.MapLatitudeLongitude(
-                    latitude=station["lat"], longitude=station["lon"]
+                    latitude=station["lat"],
+                    longitude=station["lon"],
                 ),
                 width=48,
                 height=48,
@@ -259,6 +289,7 @@ def main(page: ft.Page):
                 ),
             )
         )
+
     bus_heading_icon = ft.Icon(
         ft.Icons.NAVIGATION_ROUNDED,
         size=25,
@@ -267,7 +298,10 @@ def main(page: ft.Page):
         animate_rotation=ft.Animation(120, ft.AnimationCurve.LINEAR),
     )
     bus_marker = ftm.Marker(
-        coordinates=ftm.MapLatitudeLongitude(latitude=bus_lat, longitude=bus_lon),
+        coordinates=ftm.MapLatitudeLongitude(
+            latitude=bus_lat,
+            longitude=bus_lon,
+        ),
         width=54,
         height=54,
         content=ft.Container(
@@ -282,6 +316,7 @@ def main(page: ft.Page):
             tooltip="Unidad · dirección de viaje",
         ),
     )
+
     mapa = ftm.Map(
         expand=True,
         initial_center=bus_marker.coordinates,
@@ -301,37 +336,59 @@ def main(page: ft.Page):
             route_layer,
             ftm.MarkerLayer(markers=station_markers + [bus_marker]),
             ftm.SimpleAttribution(
-                text="OpenStreetMap contributors",
+                text="© OpenStreetMap contributors",
                 alignment=ft.Alignment.BOTTOM_LEFT,
                 text_style=ft.TextStyle(size=10, color=MUTED),
                 bgcolor=WHITE,
             ),
         ],
     )
+
     map_stack = ft.Stack(
         expand=True,
         controls=[
             mapa,
             ft.Container(left=16, top=16, content=controls.badge),
-            ft.Container(right=16, bottom=28, content=controls.center_accessible),
+            ft.Container(
+                right=16,
+                bottom=28,
+                content=controls.center_accessible,
+            ),
         ],
     )
-    header = ft.Container(content=top_bar(show_route))
+
+    header = ft.Container(
+        content=top_bar(
+            show_route,
+            line_label=route.line_label,
+            network_name=route.network_name,
+        )
+    )
     dock = ft.Container(
         content=ft.Column(
-            tight=True, spacing=8, controls=[alerts.control, card.control]
+            tight=True,
+            spacing=8,
+            controls=[alerts.control, card.control],
         )
     )
     dock_outer = ft.Container(
         alignment=ft.Alignment.CENTER,
-        padding=ft.Padding.only(left=12, right=12, top=10, bottom=12),
+        padding=ft.Padding.only(
+            left=12,
+            right=12,
+            top=10,
+            bottom=12,
+        ),
         content=dock,
     )
     body = ft.Column(
         expand=True,
         spacing=0,
         controls=[
-            ft.Container(alignment=ft.Alignment.CENTER, content=header),
+            ft.Container(
+                alignment=ft.Alignment.CENTER,
+                content=header,
+            ),
             map_stack,
             dock_outer,
         ],
@@ -341,8 +398,6 @@ def main(page: ft.Page):
         width = page.width or 390
         header.width = min(width, 1000)
         dock.width = min(max(0, width - 24), CARD_WIDTH)
-        # The map remains usable in landscape / with enlarged system text.
-        # A bounded scroll region is used only for the card on short screens.
         dock.height = 150 if (page.height or 800) < 560 else None
         dock.content.scroll = ft.ScrollMode.AUTO if dock.height else None
         page.update()
@@ -351,17 +406,45 @@ def main(page: ft.Page):
     page.add(ft.SafeArea(content=body, expand=True))
     resize()
 
+    def should_follow_camera(snapshot):
+        if not map_state["follow_vehicle"] or not map_state["ready"]:
+            return False
+
+        now = time.monotonic()
+        if now - map_state["last_follow_at"] < FOLLOW_CAMERA_INTERVAL_SECONDS:
+            return False
+
+        distance = VehicleService.haversine_m(
+            (
+                map_state["last_follow_lat"],
+                map_state["last_follow_lon"],
+            ),
+            (snapshot.lat, snapshot.lon),
+        )
+        if distance < FOLLOW_MIN_DISTANCE_M:
+            return False
+
+        map_state["last_follow_at"] = now
+        map_state["last_follow_lat"] = snapshot.lat
+        map_state["last_follow_lon"] = snapshot.lon
+        return True
+
     async def consume_vehicle_data():
-        """Consume the unchanged service; update marker and passenger fields."""
+        """Consume the demo adapter now; the API adapter can keep this contract."""
         try:
             async for snapshot in vehicle_service.stream():
                 map_state["latest_lat"] = snapshot.lat
                 map_state["latest_lon"] = snapshot.lon
-                map_state["snapshot_count"] += 1
+
                 bus_marker.coordinates = ftm.MapLatitudeLongitude(
-                    latitude=snapshot.lat, longitude=snapshot.lon
+                    latitude=snapshot.lat,
+                    longitude=snapshot.lon,
                 )
-                bus_heading_icon.rotate = math.radians(snapshot.heading_deg)
+                bus_heading_icon.rotate = unwrap_heading_radians(
+                    bus_heading_icon.rotate,
+                    snapshot.heading_deg,
+                )
+
                 card.update_vehicle(snapshot, demo=demo_source)
                 station, seconds = next_arrival(
                     station_progress,
@@ -370,17 +453,19 @@ def main(page: ft.Page):
                     snapshot.speed_mps,
                 )
                 card.station.value = station
-                card.eta.value = "Llegando" if seconds == 0 else format_eta(seconds)
+                card.eta.value = (
+                    "Llegando" if seconds == 0 else format_eta(seconds)
+                )
                 card.eta.size = 18 if seconds == 0 else 24
+
                 if snapshot.status != "online":
                     card.eta.value = "—"
+
                 page.update()
-                if (
-                    map_state["follow_vehicle"]
-                    and map_state["ready"]
-                    and map_state["snapshot_count"] % FOLLOW_EVERY_N_SNAPSHOTS == 0
-                ):
+
+                if should_follow_camera(snapshot):
                     await move_camera(snapshot.lat, snapshot.lon)
+
         except Exception:
             logging.getLogger(__name__).exception("Vehicle stream stopped")
             card.status.value = "Sin conexión · última ubicación"
