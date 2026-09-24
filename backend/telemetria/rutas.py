@@ -118,32 +118,43 @@ def Telemetry():
     # ---------------------------------------
 
     with pool.connection() as conn:
-            with conn.cursor() as cur:
+        with conn.cursor() as cur:
+
+            cur.execute("""
+                UPDATE telemetry
+                SET
+                    position = ST_SetSRID(
+                        ST_MakePoint(%s, %s),
+                        4326
+                    ),
+                    speed_mps = %s,
+                    accuracy_m = %s,
+                    heading_deg = %s,
+                    satellites = %s,
+                    observed_at = %s
+                WHERE device_id = %s
+                AND vehicle_id = %s
+                AND sequence = %s
+            """, (
+                data["position"]["lon"],
+                data["position"]["lat"],
+                data["position"].get("speed"),
+                data["position"].get("accuracy"),
+                data["position"].get("heading"),
+                data["position"].get("satellites"),
+                data["observed_at"],
+                data["device_id"],
+                data["vehicle_id"],
+                data["seq"]
+            ));
+
+            resp = cur.rowcount;
     
-                cur.execute("""
-                    SELECT
-                        d.device_id,
-                        v.vehicle_id
-                    FROM devices AS d
-    
-                    JOIN vehicles AS v
-                        ON v.device_id = d.device_id
-    
-                    WHERE d.device_id = %s
-                      AND v.vehicle_id = %s
-                      AND d.token_hash = %s
-                """, (
-                    data["device_id"],
-                    data["vehicle_id"],
-                    auth
-                ));
-    
-                resp = cur.fetchone();
     return {
         "accepted": True,
         "device_id": data["device_id"],
         "seq": data["seq"]
-    }, 202
+    }, 202 ;
 
 @telemetria.get("/v1/alerts")
 def Alert():
