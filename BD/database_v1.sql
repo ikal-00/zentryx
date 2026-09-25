@@ -3,7 +3,7 @@
 -- Coherente con contracts/api_v1.md
 --
 -- Fuente de verdad para rutas, estaciones, unidades, GPS,
--- telemetría, alertas e incidentes.
+-- telemetría, alertas, conductores e incidentes.
 
 BEGIN;
 
@@ -15,32 +15,41 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 CREATE TABLE IF NOT EXISTS routes (
     route_id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     line_id TEXT,
     line_label TEXT,
+    network_name TEXT,
     service_id TEXT,
     service_name TEXT,
     origin_name TEXT,
     destination_name TEXT,
     direction_forward_label TEXT,
     direction_reverse_label TEXT,
+    default_speed_mps DOUBLE PRECISION NOT NULL DEFAULT 6.0
+        CHECK (default_speed_mps > 0),
     path geometry(LineString, 4326),
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Permite volver a ejecutar este archivo sobre una base creada antes de que
--- existieran las variantes/servicios de ruta.
 ALTER TABLE routes
     ADD COLUMN IF NOT EXISTS line_id TEXT,
     ADD COLUMN IF NOT EXISTS line_label TEXT,
+    ADD COLUMN IF NOT EXISTS network_name TEXT,
     ADD COLUMN IF NOT EXISTS service_id TEXT,
     ADD COLUMN IF NOT EXISTS service_name TEXT,
     ADD COLUMN IF NOT EXISTS origin_name TEXT,
     ADD COLUMN IF NOT EXISTS destination_name TEXT,
     ADD COLUMN IF NOT EXISTS direction_forward_label TEXT,
-    ADD COLUMN IF NOT EXISTS direction_reverse_label TEXT;
+    ADD COLUMN IF NOT EXISTS direction_reverse_label TEXT,
+    ADD COLUMN IF NOT EXISTS default_speed_mps DOUBLE PRECISION NOT NULL DEFAULT 6.0;
+
+-- Variantes de una misma línea pueden compartir nombre comercial.
+ALTER TABLE routes DROP CONSTRAINT IF EXISTS routes_name_key;
+
+CREATE INDEX IF NOT EXISTS idx_routes_name
+    ON routes(name);
 
 CREATE INDEX IF NOT EXISTS idx_routes_path_gist
     ON routes USING GIST (path);
@@ -65,7 +74,6 @@ CREATE TABLE IF NOT EXISTS stations (
 CREATE INDEX IF NOT EXISTS idx_stations_position_gist
     ON stations USING GIST (position);
 
--- Una estación puede pertenecer a una o varias rutas.
 CREATE TABLE IF NOT EXISTS route_stations (
     route_id TEXT NOT NULL,
     station_id TEXT NOT NULL,
@@ -134,6 +142,44 @@ CREATE TABLE IF NOT EXISTS vehicles (
 
 CREATE INDEX IF NOT EXISTS idx_vehicles_route_id
     ON vehicles(route_id);
+
+-- =========================================================
+-- CONDUCTORES
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS drivers (
+    driver_id TEXT PRIMARY KEY,
+    display_name TEXT,
+    token_hash TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON COLUMN drivers.token_hash IS
+    'SHA-256 driver session/API token hash. Canonical format: sha256:<64 lowercase hex chars>.';
+
+CREATE TABLE IF NOT EXISTS driver_vehicle_assignments (
+    driver_id TEXT NOT NULL,
+    vehicle_id TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (driver_id, vehicle_id),
+
+    CONSTRAINT fk_driver_vehicle_driver
+        FOREIGN KEY (driver_id)
+        REFERENCES drivers(driver_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_driver_vehicle_vehicle
+        FOREIGN KEY (vehicle_id)
+        REFERENCES vehicles(vehicle_id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_driver_vehicle_active
+    ON driver_vehicle_assignments(vehicle_id, active);
 
 -- =========================================================
 -- TELEMETRÍA GPS
@@ -228,6 +274,7 @@ CREATE INDEX IF NOT EXISTS idx_alerts_active_created_at
 CREATE TABLE IF NOT EXISTS incidents (
     incident_id TEXT PRIMARY KEY,
     vehicle_id TEXT NOT NULL,
+    driver_id TEXT,
 
     type TEXT NOT NULL,
     description TEXT,
@@ -240,8 +287,16 @@ CREATE TABLE IF NOT EXISTS incidents (
     CONSTRAINT fk_incidents_vehicle
         FOREIGN KEY (vehicle_id)
         REFERENCES vehicles(vehicle_id)
-        ON DELETE RESTRICT
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_incidents_driver
+        FOREIGN KEY (driver_id)
+        REFERENCES drivers(driver_id)
+        ON DELETE SET NULL
 );
+
+ALTER TABLE incidents
+    ADD COLUMN IF NOT EXISTS driver_id TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_incidents_position_gist
     ON incidents USING GIST (position);
@@ -252,7 +307,6 @@ CREATE INDEX IF NOT EXISTS idx_incidents_vehicle_created_at
 -- =========================================================
 -- VISTA: ÚLTIMA POSICIÓN CONOCIDA DE CADA UNIDAD
 -- =========================================================
--- Esta vista simplifica GET /v1/vehicles y GET /v1/vehicles/{id}.
 
 CREATE OR REPLACE VIEW vehicle_latest_telemetry AS
 SELECT DISTINCT ON (t.vehicle_id)
@@ -268,75 +322,5 @@ SELECT DISTINCT ON (t.vehicle_id)
     t.received_at
 FROM telemetry t
 ORDER BY t.vehicle_id, t.observed_at DESC, t.id DESC;
-
--- =========================================================
--- EJEMPLOS DE INSERCIÓN PARA DESARROLLO
--- =========================================================
--- No se ejecutan automáticamente. Son solo referencia.
---
--- INSERT INTO routes (
---     route_id,
---     name,
---     line_id,
---     line_label,
---     service_id,
---     service_name,
---     origin_name,
---     destination_name,
---     direction_forward_label,
---     direction_reverse_label
--- ) VALUES (
---     'route-l2',
---     'Mexibús Línea 2',
---     'mexibus-l2',
---     'L2',
---     'l2-ordinary',
---     'Servicio ordinario',
---     'La Quebrada',
---     'Las Américas',
---     'La Quebrada → Las Américas',
---     'Las Américas → La Quebrada'
--- );
---
--- INSERT INTO stations (station_id, name, position)
--- VALUES (
---     'station-bandera-tultitlan',
---     'Bandera Tultitlán',
---     ST_SetSRID(ST_MakePoint(-99.16299, 19.62211), 4326)
--- );
---
--- INSERT INTO route_stations (route_id, station_id, stop_order)
--- VALUES ('route-l2', 'station-bandera-tultitlan', 1);
---
--- Para generar token_hash desde Python:
--- python -c "import hashlib; t='TOKEN'; print('sha256:'+hashlib.sha256(t.encode()).hexdigest())"
---
--- INSERT INTO devices (device_id, name, token_hash)
--- VALUES ('gps-01', 'GPS prototipo 01', 'sha256:<HASH_DEL_TOKEN>');
---
--- INSERT INTO vehicles (vehicle_id, display_name, route_id, device_id)
--- VALUES ('unit-01', 'Unidad Demo 01', 'route-l2', 'gps-01');
---
--- INSERT INTO telemetry (
---     device_id,
---     vehicle_id,
---     sequence,
---     position,
---     speed_mps,
---     accuracy_m,
---     heading_deg,
---     satellites,
---     observed_at
--- ) VALUES (
---     'gps-01',
---     'unit-01',
---     152,
---     ST_SetSRID(ST_MakePoint(-99.16299, 19.62211), 4326),
---     8.3,
---     4.7,
---     124.5,
---     12,
---     '2026-09-20T05:31:22Z'
--- );
 
 COMMIT;
