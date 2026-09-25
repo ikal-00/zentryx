@@ -1,1 +1,3 @@
-from rutas import status
+from .rutas import status
+
+__all__ = ["status"]
