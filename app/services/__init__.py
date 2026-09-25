@@ -1,3 +1,4 @@
+from .api_vehicle_service import ApiVehicleService, ApiVehicleSnapshot
 from .route_service import (
     RouteDefinition,
     StationDefinition,
@@ -7,6 +8,8 @@ from .route_service import (
 from .vehicle_service import VehicleService, VehicleSnapshot
 
 __all__ = [
+    "ApiVehicleService",
+    "ApiVehicleSnapshot",
     "RouteDefinition",
     "StationDefinition",
     "VehicleService",
