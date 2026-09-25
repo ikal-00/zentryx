@@ -11,8 +11,6 @@ pipenv install
 
 La API necesita `POSTGRES_URL` apuntando a PostgreSQL + PostGIS.
 
-Ejemplo `.env` local:
-
 ```text
 POSTGRES_URL=postgresql://user:password@localhost:5432/zentryx
 DB_POOL_MIN=1
@@ -23,61 +21,70 @@ PORT=5000
 
 ## Base de datos
 
-Para una base nueva ejecuta:
+Base nueva:
 
 ```bash
-psql "$POSTGRES_URL" -f ../BD/database_v1.sql
+psql "$POSTGRES_URL" -f BD/database_v1.sql
 ```
 
-Si la base ya existía antes de añadir metadatos de línea/servicio, ejecuta además:
+Base existente:
 
 ```bash
-psql "$POSTGRES_URL" -f ../BD/migrations/002_api_alignment.sql
+psql "$POSTGRES_URL" -f BD/migrations/002_api_alignment.sql
+psql "$POSTGRES_URL" -f BD/migrations/003_runtime_hardening.sql
 ```
 
-`BD/Gps_sql/Gps_sql.sql` está deprecado y no debe utilizarse.
-
-## Tokens de dispositivo
-
-La columna `devices.token_hash` guarda SHA-256, no el token plano.
-
-Para generar un valor:
+Carga de la Línea 2 ordinaria desde los GeoJSON reales del frontend:
 
 ```bash
-python -c "import hashlib; t='TU_TOKEN'; print('sha256:'+hashlib.sha256(t.encode()).hexdigest())"
+POSTGRES_URL="$POSTGRES_URL" python -m backend.seed_routes
 ```
 
-El GPS envía el token original:
+`BD/Gps_sql/Gps_sql.sql` está deprecado.
+
+## Tokens
+
+Dispositivos GPS:
 
 ```text
-Authorization: Device TU_TOKEN
+Authorization: Device <token>
 ```
+
+Conductores que reportan incidentes:
+
+```text
+Authorization: Driver <token>
+```
+
+Ambos tokens se almacenan como SHA-256 (`sha256:<64 hex>`), nunca en texto plano.
 
 ## Ejecutar
 
-Desde la raíz del repositorio:
+Desde la raíz:
 
 ```bash
 python -m backend.API_Global
 ```
 
-Health check:
+Liveness:
 
 ```bash
 curl http://127.0.0.1:5000/v1/health
 ```
 
-Respuesta esperada:
+Readiness real de PostgreSQL/PostGIS:
 
-```json
-{"status":"ok"}
+```bash
+curl http://127.0.0.1:5000/v1/ready
 ```
 
 ## Endpoints MVP
 
 ```text
 GET  /v1/health
+GET  /v1/ready
 GET  /v1/routes
+GET  /v1/routes/{route_id}
 GET  /v1/routes/{route_id}/stations
 GET  /v1/stations
 GET  /v1/vehicles
@@ -87,31 +94,23 @@ GET  /v1/alerts
 POST /v1/incidents
 ```
 
-`GET /v1/vehicles/{id}` devuelve además `navigation`, calculado en el backend: sentido, progreso, próxima estación, distancia restante y ETA simple por distancia/velocidad.
+`GET /v1/vehicles/{id}` deriva estado online/offline, usa varias muestras recientes para estabilizar el sentido y calcula próxima estación/ETA en backend. El ETA usa velocidad suavizada reciente y la velocidad por defecto de la ruta como fallback cuando la unidad está detenida.
 
 ## Telemetría
 
-`POST /v1/telemetry` es idempotente por `(device_id, seq)`. Un paquete nuevo se inserta; un paquete repetido devuelve `duplicate: true` sin crear otra fila.
+`POST /v1/telemetry` es idempotente por `(device_id, seq)`. Valida schema, coordenadas, timestamp, velocidad, precisión, heading y satélites. También rechaza timestamps con más de 5 minutos de futuro o más de 24 horas de antigüedad.
 
-La API valida schema, coordenadas, timestamp, velocidad, precisión, heading y satélites antes de tocar PostgreSQL.
+## Incidentes
 
-## Estado online/offline
-
-La respuesta de unidades deriva el estado de `last_update`:
-
-- `online`: telemetría de hace 30 s o menos
-- `offline`: existe telemetría pero está vencida
-- `unknown`: nunca se ha recibido telemetría
+Un incidente requiere un conductor activo en `drivers` y una asignación activa en `driver_vehicle_assignments`. Ya no se comparte el token físico del GPS con la interfaz del conductor.
 
 ## Tests
-
-Desde la raíz:
 
 ```bash
 python -m compileall -q backend
 python -m unittest discover -s backend/tests -v
 ```
 
-También existe `.github/workflows/backend-api.yml` para ejecutar estas comprobaciones en GitHub Actions.
+GitHub Actions levanta un contenedor real PostgreSQL + PostGIS y prueba el ciclo completo: esquema → seed L2 → telemetría → unidad/navegación → alertas → incidente de conductor.
 
 El contrato completo está en `contracts/api_v1.md`.
