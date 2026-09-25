@@ -42,6 +42,36 @@ POSTGRES_URL="$POSTGRES_URL" python -m backend.seed_routes
 
 `BD/Gps_sql/Gps_sql.sql` está deprecado.
 
+## Servidor compartido con Docker
+
+La instalación compartida usa `docker-compose.yml` en la raíz y levanta PostgreSQL/PostGIS y la API en contenedores separados. La base queda en el volumen persistente `zentryx_db` y PostgreSQL no publica el puerto 5432 al host.
+
+Crea un `.env` local a partir de `.env.example`. `POSTGRES_PASSWORD` debe ser un valor aleatorio y `API_BIND_IP` debe ser la IP Tailscale del servidor. `.env` está ignorado por Git.
+
+```bash
+cp .env.example .env
+# Editar .env antes de arrancar.
+docker compose up -d --build
+```
+
+La API carga/actualiza el seed de Línea 2 al arrancar y se sirve con Gunicorn. Para comprobar el servidor:
+
+```bash
+docker compose ps
+curl http://<TAILSCALE_IP>:5000/v1/health
+curl http://<TAILSCALE_IP>:5000/v1/ready
+curl http://<TAILSCALE_IP>:5000/v1/routes
+```
+
+Para desplegar cambios nuevos del repositorio:
+
+```bash
+git pull --ff-only origin main
+docker compose up -d --build
+```
+
+No uses `docker compose down -v` salvo que quieras borrar deliberadamente la base de datos de desarrollo.
+
 ## Tokens
 
 Dispositivos GPS:
@@ -58,7 +88,7 @@ Authorization: Driver <token>
 
 Ambos tokens se almacenan como SHA-256 (`sha256:<64 hex>`), nunca en texto plano.
 
-## Ejecutar
+## Ejecutar sin Docker
 
 Desde la raíz:
 
