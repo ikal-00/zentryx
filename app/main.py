@@ -1,11 +1,12 @@
 import logging
 import math
+import os
 import time
 
 import flet as ft
 import flet_map as ftm
 from components.passenger import AlertBanner, MapControls, PassengerCard, top_bar
-from services import VehicleService, load_route
+from services import ApiVehicleService, VehicleService, load_route
 from theme import ACCENT, CARD_WIDTH, INK, MUTED, SOFT, WHITE, configure, shadow
 
 
@@ -47,7 +48,7 @@ def format_eta(seconds):
 
 
 def next_arrival(stations, progress_m, direction, speed_mps):
-    """Usa stop_order como secuencia oficial; progress solo decide si ya pasó."""
+    """Fallback usado únicamente por la fuente demo local."""
     ordered = stations if direction == 1 else reversed(stations)
     candidates = [
         station
@@ -79,18 +80,28 @@ def main(page: ft.Page):
     configure(page)
     route, route_coordinates, route_points, stations = load_geography()
 
-    vehicle_service = VehicleService(
-        route_coordinates=route_coordinates,
-        route_id=route.route_id,
-        forward_direction_label=route.forward_label,
-        reverse_direction_label=route.reverse_label,
-    )
+    api_base_url = os.getenv("ZENTRYX_API_BASE_URL", "").strip()
+    if api_base_url:
+        vehicle_service = ApiVehicleService(
+            route_coordinates=route_coordinates,
+            base_url=api_base_url,
+            vehicle_id=os.getenv("ZENTRYX_VEHICLE_ID", "unit-01"),
+            route_id=route.route_id,
+            forward_direction_label=route.forward_label,
+            reverse_direction_label=route.reverse_label,
+        )
+        demo_source = False
+    else:
+        vehicle_service = VehicleService(
+            route_coordinates=route_coordinates,
+            route_id=route.route_id,
+            forward_direction_label=route.forward_label,
+            reverse_direction_label=route.reverse_label,
+        )
+        demo_source = True
 
-    # Existing service is a demo source. Change this only when its real adapter lands.
-    demo_source = True
-
-    # Mantener stop_order como la fuente de verdad. La proyección solo agrega la
-    # posición métrica necesaria para la demo actual y el cálculo local de ETA.
+    # stop_order sigue siendo la secuencia oficial. La proyección local se conserva
+    # para la demo y para ubicar estaciones en el mapa; el ETA real viene del backend.
     station_progress = [
         {
             **station,
@@ -241,8 +252,6 @@ def main(page: ft.Page):
     card = PassengerCard(close_station, line_label=route.line_label)
     alerts = AlertBanner(show_alert)
 
-    # Future adapter may supply an active /v1/alerts item via alerts.set_alert().
-    # No request, fabricated alert or empty "all clear" state is generated here.
     route_layer = ftm.PolylineLayer(
         polylines=[
             ftm.PolylineMarker(
@@ -430,7 +439,7 @@ def main(page: ft.Page):
         return True
 
     async def consume_vehicle_data():
-        """Consume the demo adapter now; the API adapter can keep this contract."""
+        """Consume demo data or the real REST adapter with the same UI contract."""
         try:
             async for snapshot in vehicle_service.stream():
                 map_state["latest_lat"] = snapshot.lat
@@ -446,12 +455,24 @@ def main(page: ft.Page):
                 )
 
                 card.update_vehicle(snapshot, demo=demo_source)
-                station, seconds = next_arrival(
-                    station_progress,
-                    snapshot.progress_m,
-                    snapshot.direction,
-                    snapshot.speed_mps,
-                )
+
+                if getattr(snapshot, "navigation_from_api", False):
+                    seconds = getattr(snapshot, "eta_seconds", None)
+                    station = getattr(snapshot, "next_station_name", None)
+                    if station is None:
+                        station = (
+                            "Terminal del tramo"
+                            if seconds == 0
+                            else "Calculando próxima estación"
+                        )
+                else:
+                    station, seconds = next_arrival(
+                        station_progress,
+                        snapshot.progress_m,
+                        snapshot.direction,
+                        snapshot.speed_mps,
+                    )
+
                 card.station.value = station
                 card.eta.value = (
                     "Llegando" if seconds == 0 else format_eta(seconds)
