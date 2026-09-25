@@ -2,60 +2,57 @@
 
 ## Ejecutar
 
-Desde la raíz del repositorio, con el entorno existente:
-
 ```bash
 cd app
 source .venv/bin/activate
 flet run --web main.py
 ```
 
-Si falta alguna dependencia:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-Para abrirla en un teléfono conectado a la misma red local:
+Para abrirla en un teléfono de la misma red:
 
 ```bash
 flet run --web --host '*' --port 8550 main.py
 ```
 
-Los mosaicos de OpenStreetMap necesitan conexión a internet.
-
 ## Modo demo y modo API real
 
-Sin variables adicionales, la app conserva `VehicleService` como fuente de demostración para poder desarrollar la UI sin depender del backend.
+Sin variables adicionales, la app usa `VehicleService` como fuente de demostración.
 
 Para consumir la API real:
 
 ```bash
 export ZENTRYX_API_BASE_URL="http://127.0.0.1:5000"
+export ZENTRYX_SERVICE_ID="l2-ordinary"
 export ZENTRYX_VEHICLE_ID="unit-01"
 flet run --web main.py
 ```
 
-`ApiVehicleService` consulta `GET /v1/vehicles/{vehicle_id}` aproximadamente cada segundo y conserva la misma interfaz de snapshots que usa el mapa. Cuando este modo está activo:
+En modo API:
 
-- la posición, velocidad, heading, ocupación y estado vienen del backend;
-- el estado `online/offline/unknown` usa la frescura calculada por la API;
-- próxima estación, distancia restante y ETA vienen de `navigation` del backend;
-- el frontend deja de calcular el ETA de producción por su cuenta.
+- `GET /v1/routes` selecciona el servicio por `ZENTRYX_SERVICE_ID`;
+- `GET /v1/routes/{id}` carga la geometría real desde PostgreSQL/PostGIS;
+- `GET /v1/routes/{id}/stations` carga estaciones y `stop_order`;
+- `GET /v1/vehicles/{id}` alimenta posición, heading, estado y navegación;
+- `GET /v1/alerts` alimenta el banner de avisos reales;
+- próxima estación y ETA vienen únicamente del backend;
+- `direction=unknown` ya no se convierte artificialmente en ida;
+- si la API está caída desde el arranque, la app muestra estado sin conexión y oculta el marcador hasta conocer una posición real;
+- si se pierde conexión después de recibir una posición, conserva la última ubicación y marca la unidad como offline.
 
-Si la API deja de responder temporalmente y ya existe una posición conocida, el adaptador conserva esa última posición y la presenta como `offline`.
+Si la API no puede entregar la definición de ruta durante el arranque, el mapa puede usar el asset local como fallback visual, mientras el adaptador de vehículo sigue intentando conectar al backend.
 
-## Organización del frontend
+## Organización
 
-- `main.py`: composición de pantalla, cámara, selección de estaciones y selección del adaptador demo/API.
-- `components/passenger.py`: cabecera, controles, tarjeta de unidad/estación y banner de alertas.
-- `services/route_service.py`: catálogo y validación de líneas/servicios/rutas.
-- `services/vehicle_service.py`: geometría, contrato de snapshots y fuente de demostración.
-- `services/api_vehicle_service.py`: adaptador REST para datos reales de unidades.
-- `theme.py`: colores, dimensiones, sombras y configuración de Flet.
-- `assets/routes/`: geometría y estaciones separadas por servicio.
+- `main.py`: pantalla, mapa, cámara y selección demo/API.
+- `components/passenger.py`: tarjeta de pasajero, cabecera y alertas.
+- `services/route_service.py`: catálogo/validación local.
+- `services/api_route_service.py`: definición de ruta y estaciones desde API.
+- `services/vehicle_service.py`: geometría y simulación local.
+- `services/api_vehicle_service.py`: unidad real por REST.
+- `services/api_alert_service.py`: alertas activas por REST.
+- `assets/routes/`: fallback local y datos de desarrollo.
 
-### Assets actuales
+## Línea 2 local
 
 ```text
 assets/routes/
@@ -64,59 +61,19 @@ assets/routes/
 └── l2_express_ero.geojson
 ```
 
-`l2_ordinary_route.geojson` contiene el corredor La Quebrada → Las Américas reconstruido a partir de los `ways` de la relación OSM de Línea 2.
-
-`l2_ordinary_stations.geojson` mantiene las 43 estaciones del servicio ordinario con `stop_order` de 1 a 43. El frontend usa ese orden como fuente de verdad.
-
-ERO queda separado porque corresponde al servicio exprés y no se inserta artificialmente dentro de la secuencia del servicio ordinario.
-
-## Preparado para múltiples servicios
-
-La UI no necesita conocer nombres como `La Quebrada` o `Las Américas` dentro de `VehicleService`. `route_service.py` entrega:
-
-- `route_id`
-- `line_id`
-- etiqueta de línea
-- red
-- `service_id`
-- nombre de servicio
-- terminal origen/destino
-- etiquetas de ambos sentidos
-- geometría
-- estaciones ordenadas
-
-Para añadir otra variante se agregan sus assets y una entrada en `SERVICE_ASSETS`; el mapa puede reutilizar la misma estructura.
+El servicio ordinario conserva 43 estaciones ordenadas de La Quebrada a Las Américas. ERO permanece separado como dato de servicio exprés.
 
 ## Seguimiento del mapa
 
-El marcador del vehículo se actualiza con cada snapshot, pero la cámara se limita por tiempo y distancia mínima para evitar animaciones solapadas.
-
-Mover el mapa manualmente cambia a **Exploración libre**. El botón de centrar vuelve a la última posición de la unidad y reactiva el seguimiento.
-
-La rotación del marcador usa un ángulo continuo para evitar que un cambio de heading como `359° → 1°` provoque visualmente una vuelta casi completa.
+El marcador actualiza cada snapshot; la cámara se limita por tiempo y distancia para evitar jitter. Mover el mapa activa **Exploración libre** y el botón de centrado reactiva seguimiento. La rotación del heading evita la vuelta larga al cruzar 0°/360°.
 
 ## Validación
-
-Desde `app`:
 
 ```bash
 python -m unittest discover -s tests -v
 python -m compileall -q main.py components services theme.py
 ```
 
-Las pruebas cubren, entre otras cosas:
+Las pruebas cubren UI, cámara, heading, rutas locales, adaptadores API, `direction=unknown`, arranque offline, carga de rutas desde contrato y alertas.
 
-- seguimiento y exploración libre
-- botón de centrado
-- selección de estaciones
-- limitación de movimientos de cámara ante ráfagas de snapshots
-- heading al cruzar 0°/360°
-- ETA de la demo en ambos sentidos
-- `stop_order` 1–43 sin huecos
-- nombres de estación sin duplicados
-- terminales correctas
-- estaciones alineadas a la geometría
-- inyección de etiquetas de dirección sin hardcodes de Línea 2
-- tamaños de ventana móvil, landscape y escritorio
-
-La especificación del backend vive en `../contracts/api_v1.md` y el esquema en `../BD/database_v1.sql`.
+La especificación del backend está en `../contracts/api_v1.md` y el esquema en `../BD/database_v1.sql`.
