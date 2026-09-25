@@ -14,11 +14,30 @@ Para abrirla en un teléfono de la misma red:
 flet run --web --host '*' --port 8550 main.py
 ```
 
-## Modo demo y modo API real
+## Servidor compartido del equipo
 
-Sin variables adicionales, la app usa `VehicleService` como fuente de demostración.
+El servidor compartido actual se consume por Tailscale. Para probar la app contra ese servidor y la unidad demo del backend:
 
-Para consumir la API real:
+```bash
+cd app
+bash run_shared_api.sh
+```
+
+El launcher usa por defecto:
+
+```text
+ZENTRYX_API_BASE_URL=http://100.72.215.34:5000
+ZENTRYX_SERVICE_ID=l2-ordinary
+ZENTRYX_VEHICLE_ID=unit-demo-01
+```
+
+Puedes sobreescribir cualquiera de esas variables antes de ejecutar el script. La unidad `unit-demo-01` solo existe cuando el servidor tiene activo el perfil Docker `demo`.
+
+## Modo demo local y modo API real
+
+Sin variables adicionales, la app usa `VehicleService` como fuente de demostración local.
+
+Para consumir manualmente cualquier API real:
 
 ```bash
 export ZENTRYX_API_BASE_URL="http://127.0.0.1:5000"
@@ -50,6 +69,7 @@ Si la API no puede entregar la definición de ruta durante el arranque, el mapa 
 - `services/vehicle_service.py`: geometría y simulación local.
 - `services/api_vehicle_service.py`: unidad real por REST.
 - `services/api_alert_service.py`: alertas activas por REST.
+- `run_shared_api.sh`: launcher del entorno compartido por Tailscale.
 - `assets/routes/`: fallback local y datos de desarrollo.
 
 ## Línea 2 local
@@ -72,6 +92,12 @@ El marcador actualiza cada snapshot; la cámara se limita por tiempo y distancia
 ```bash
 python -m unittest discover -s tests -v
 python -m compileall -q main.py components services theme.py
+```
+
+Desde la raíz del repositorio también puedes verificar todo el servidor compartido, incluida unidad, ETA y alertas, con:
+
+```bash
+python3 scripts/check_shared_api.py http://100.72.215.34:5000
 ```
 
 Las pruebas cubren UI, cámara, heading, rutas locales, adaptadores API, `direction=unknown`, arranque offline, carga de rutas desde contrato y alertas.
