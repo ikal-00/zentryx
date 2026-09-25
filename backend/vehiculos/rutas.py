@@ -24,22 +24,35 @@ VEHICLE_QUERY = """
         t.accuracy_m,
         t.heading_deg,
         t.last_update,
-        previous.prev_lat,
-        previous.prev_lon
+        recent.history,
+        recent.smoothed_speed_mps
     FROM vehicles AS v
     LEFT JOIN vehicle_latest_telemetry AS t
         ON t.vehicle_id = v.vehicle_id
     LEFT JOIN LATERAL (
         SELECT
-            ST_Y(previous_t.position) AS prev_lat,
-            ST_X(previous_t.position) AS prev_lon
-        FROM telemetry AS previous_t
-        WHERE previous_t.vehicle_id = v.vehicle_id
-          AND t.last_update IS NOT NULL
-          AND previous_t.observed_at < t.last_update
-        ORDER BY previous_t.observed_at DESC, previous_t.id DESC
-        LIMIT 1
-    ) AS previous ON TRUE
+            jsonb_agg(
+                jsonb_build_object(
+                    'lat', ST_Y(sample.position),
+                    'lon', ST_X(sample.position),
+                    'speed_mps', sample.speed_mps,
+                    'observed_at', sample.observed_at
+                )
+                ORDER BY sample.observed_at DESC, sample.id DESC
+            ) AS history,
+            AVG(sample.speed_mps) FILTER (
+                WHERE sample.speed_mps IS NOT NULL
+                  AND sample.speed_mps >= 0
+            ) AS smoothed_speed_mps
+        FROM (
+            SELECT id, position, speed_mps, observed_at
+            FROM telemetry
+            WHERE vehicle_id = v.vehicle_id
+              AND observed_at >= NOW() - INTERVAL '90 seconds'
+            ORDER BY observed_at DESC, id DESC
+            LIMIT 30
+        ) AS sample
+    ) AS recent ON TRUE
     WHERE v.active = TRUE
 """
 
@@ -57,7 +70,8 @@ def _load_route_context(pool, route_id, cache):
                 SELECT
                     ST_AsGeoJSON(path),
                     direction_forward_label,
-                    direction_reverse_label
+                    direction_reverse_label,
+                    default_speed_mps
                 FROM routes
                 WHERE route_id = %s AND active = TRUE;
                 """,
@@ -108,6 +122,7 @@ def _load_route_context(pool, route_id, cache):
         "navigator": RouteNavigator(coordinates, stations),
         "forward_label": route_row[1],
         "reverse_label": route_row[2],
+        "default_speed_mps": route_row[3] or 6.0,
     }
     cache[route_id] = context
     return context
@@ -125,19 +140,25 @@ def _serialize_vehicle(row, pool, route_cache):
         accuracy_m,
         heading_deg,
         last_update,
-        previous_lat,
-        previous_lon,
+        history,
+        smoothed_speed_mps,
     ) = row
 
     navigation = None
     context = _load_route_context(pool, route_id, route_cache)
     if context is not None and lat is not None and lon is not None:
+        history = history or []
+        # First history item is normally the current packet. Exclude points that
+        # project to the exact current sample from direction inference.
+        older_history = history[1:] if len(history) > 1 else []
         result = context["navigator"].navigation(
             lat=lat,
             lon=lon,
-            previous_lat=previous_lat,
-            previous_lon=previous_lon,
+            history=older_history,
+            heading_deg=heading_deg,
             speed_mps=speed_mps,
+            smoothed_speed_mps=smoothed_speed_mps,
+            default_speed_mps=context["default_speed_mps"],
         )
         direction = (
             "forward"
@@ -155,6 +176,7 @@ def _serialize_vehicle(row, pool, route_cache):
         )
         navigation = {
             "direction": direction,
+            "direction_source": result.direction_source,
             "direction_label": direction_label,
             "progress_m": round(result.progress_m, 2)
             if result.progress_m is not None
@@ -178,13 +200,20 @@ def _serialize_vehicle(row, pool, route_cache):
                 if result.eta_seconds is not None
                 else None
             ),
+            "eta_speed_mps": (
+                round(result.eta_speed_mps, 2)
+                if result.eta_speed_mps is not None
+                else None
+            ),
         }
 
     return {
         "vehicle_id": vehicle_id,
         "route_id": route_id,
         "status": status,
-        "position": {"lat": lat, "lon": lon} if lat is not None and lon is not None else None,
+        "position": {"lat": lat, "lon": lon}
+        if lat is not None and lon is not None
+        else None,
         "speed_mps": speed_mps,
         "accuracy_m": accuracy_m,
         "heading_deg": heading_deg,
@@ -206,10 +235,7 @@ def list_vehicles():
 
     route_cache = {}
     return {
-        "vehicles": [
-            _serialize_vehicle(row, pool, route_cache)
-            for row in rows
-        ]
+        "vehicles": [_serialize_vehicle(row, pool, route_cache) for row in rows]
     }, 200
 
 
