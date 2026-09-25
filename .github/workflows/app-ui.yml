@@ -1,0 +1,26 @@
+name: App UI checks
+
+on:
+  push:
+    paths:
+      - "app/**"
+      - ".github/workflows/app-ui.yml"
+  pull_request:
+    paths:
+      - "app/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install app dependencies
+        run: python -m pip install -r app/requirements.txt
+      - name: Compile app
+        run: python -m compileall -q app
+      - name: Run frontend tests
+        working-directory: app
+        run: python -m unittest discover -s tests -v
