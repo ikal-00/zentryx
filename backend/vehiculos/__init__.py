@@ -1,1 +1,3 @@
-from rutas import vehiculos
+from .rutas import vehiculos
+
+__all__ = ["vehiculos"]
