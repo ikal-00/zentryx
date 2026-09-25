@@ -6,7 +6,13 @@ import time
 import flet as ft
 import flet_map as ftm
 from components.passenger import AlertBanner, MapControls, PassengerCard, top_bar
-from services import ApiVehicleService, VehicleService, load_route
+from services import (
+    ApiAlertService,
+    ApiVehicleService,
+    VehicleService,
+    load_route,
+    load_route_from_api,
+)
 from theme import ACCENT, CARD_WIDTH, INK, MUTED, SOFT, WHITE, configure, shadow
 
 
@@ -17,9 +23,9 @@ FOLLOW_MIN_DISTANCE_M = 4.0
 FOLLOW_ANIMATION_MS = 420
 
 
-def load_geography():
-    """Carga la variante activa y conserva el formato que usa el frontend."""
-    route = load_route(ACTIVE_SERVICE_ID)
+def load_geography(route=None):
+    """Carga una variante y conserva el formato que usa el frontend."""
+    route = route or load_route(ACTIVE_SERVICE_ID)
     route_coordinates = list(route.coordinates)
     route_points = [
         ftm.MapLatitudeLongitude(latitude=lat, longitude=lon)
@@ -39,7 +45,6 @@ def load_geography():
 
 
 def format_eta(seconds):
-    """Passenger precision: avoid a distracting seconds counter."""
     if seconds is None:
         return "—"
     if seconds < 60:
@@ -68,7 +73,6 @@ def next_arrival(stations, progress_m, direction, speed_mps):
 
 
 def unwrap_heading_radians(previous_rotation, heading_deg):
-    """Mantiene la rotación continua y evita 359° -> 1° por la vuelta larga."""
     previous_rotation = float(previous_rotation or 0.0)
     target = math.radians(heading_deg) % math.tau
     previous_normalized = previous_rotation % math.tau
@@ -78,17 +82,42 @@ def unwrap_heading_radians(previous_rotation, heading_deg):
 
 def main(page: ft.Page):
     configure(page)
-    route, route_coordinates, route_points, stations = load_geography()
 
     api_base_url = os.getenv("ZENTRYX_API_BASE_URL", "").strip()
+    service_id = os.getenv("ZENTRYX_SERVICE_ID", ACTIVE_SERVICE_ID).strip()
+    route_from_api = False
+    route = None
     if api_base_url:
+        try:
+            route = load_route_from_api(
+                api_base_url,
+                service_id=service_id,
+            )
+            route_from_api = True
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "Could not load route from API; using local route asset"
+            )
+
+    if route is None:
+        route = load_route(service_id if service_id in (ACTIVE_SERVICE_ID,) else ACTIVE_SERVICE_ID)
+
+    route, route_coordinates, route_points, stations = load_geography(route)
+
+    if api_base_url:
+        vehicle_id = os.getenv("ZENTRYX_VEHICLE_ID", "unit-01")
         vehicle_service = ApiVehicleService(
             route_coordinates=route_coordinates,
             base_url=api_base_url,
-            vehicle_id=os.getenv("ZENTRYX_VEHICLE_ID", "unit-01"),
+            vehicle_id=vehicle_id,
             route_id=route.route_id,
             forward_direction_label=route.forward_label,
             reverse_direction_label=route.reverse_label,
+        )
+        alert_service = ApiAlertService(
+            base_url=api_base_url,
+            route_id=route.route_id,
+            vehicle_id=vehicle_id,
         )
         demo_source = False
     else:
@@ -98,10 +127,9 @@ def main(page: ft.Page):
             forward_direction_label=route.forward_label,
             reverse_direction_label=route.reverse_label,
         )
+        alert_service = None
         demo_source = True
 
-    # stop_order sigue siendo la secuencia oficial. La proyección local se conserva
-    # para la demo y para ubicar estaciones en el mapa; el ETA real viene del backend.
     station_progress = [
         {
             **station,
@@ -118,6 +146,7 @@ def main(page: ft.Page):
         "follow_vehicle": True,
         "latest_lat": bus_lat,
         "latest_lon": bus_lon,
+        "position_known": demo_source,
         "ready": False,
         "last_follow_at": 0.0,
         "last_follow_lat": bus_lat,
@@ -161,10 +190,10 @@ def main(page: ft.Page):
             if from_dialog:
                 page.pop_dialog()
             await select_station(station)
-
         return handle
 
     def show_route(e):
+        source_label = "API" if route_from_api else "datos locales"
         page.show_dialog(
             ft.AlertDialog(
                 title=ft.Text(
@@ -180,7 +209,7 @@ def main(page: ft.Page):
                     controls=[
                         ft.Text(
                             f"{route.origin_name} a {route.destination_name} · "
-                            f"{route.station_count} estaciones",
+                            f"{route.station_count} estaciones · {source_label}",
                             size=13,
                             color=MUTED,
                         ),
@@ -189,10 +218,7 @@ def main(page: ft.Page):
                                 content=station["name"],
                                 icon=ft.Icons.TRIP_ORIGIN_ROUNDED,
                                 height=52,
-                                on_click=station_handler(
-                                    station,
-                                    from_dialog=True,
-                                ),
+                                on_click=station_handler(station, from_dialog=True),
                                 style=ft.ButtonStyle(
                                     color=INK,
                                     alignment=ft.Alignment.CENTER_LEFT,
@@ -203,10 +229,7 @@ def main(page: ft.Page):
                     ],
                 ),
                 actions=[
-                    ft.TextButton(
-                        "Cerrar",
-                        on_click=lambda event: page.pop_dialog(),
-                    )
+                    ft.TextButton("Cerrar", on_click=lambda event: page.pop_dialog())
                 ],
             )
         )
@@ -232,13 +255,11 @@ def main(page: ft.Page):
         card.select_station()
         highlight_station()
         page.update()
-        await move_camera(
-            map_state["latest_lat"],
-            map_state["latest_lon"],
-        )
-        map_state["last_follow_at"] = time.monotonic()
-        map_state["last_follow_lat"] = map_state["latest_lat"]
-        map_state["last_follow_lon"] = map_state["latest_lon"]
+        if map_state["position_known"]:
+            await move_camera(map_state["latest_lat"], map_state["latest_lon"])
+            map_state["last_follow_at"] = time.monotonic()
+            map_state["last_follow_lat"] = map_state["latest_lat"]
+            map_state["last_follow_lon"] = map_state["latest_lon"]
 
     async def handle_map_position_change(e):
         if e.has_gesture and map_state["follow_vehicle"]:
@@ -284,8 +305,7 @@ def main(page: ft.Page):
         station_markers.append(
             ftm.Marker(
                 coordinates=ftm.MapLatitudeLongitude(
-                    latitude=station["lat"],
-                    longitude=station["lon"],
+                    latitude=station["lat"], longitude=station["lon"]
                 ),
                 width=48,
                 height=48,
@@ -306,24 +326,23 @@ def main(page: ft.Page):
         rotate=0.0,
         animate_rotation=ft.Animation(120, ft.AnimationCurve.LINEAR),
     )
+    bus_container = ft.Container(
+        width=48,
+        height=48,
+        alignment=ft.Alignment.CENTER,
+        bgcolor=INK,
+        border_radius=24,
+        border=ft.Border.all(3, WHITE),
+        shadow=shadow(),
+        content=bus_heading_icon,
+        tooltip="Unidad · dirección de viaje",
+        visible=demo_source,
+    )
     bus_marker = ftm.Marker(
-        coordinates=ftm.MapLatitudeLongitude(
-            latitude=bus_lat,
-            longitude=bus_lon,
-        ),
+        coordinates=ftm.MapLatitudeLongitude(latitude=bus_lat, longitude=bus_lon),
         width=54,
         height=54,
-        content=ft.Container(
-            width=48,
-            height=48,
-            alignment=ft.Alignment.CENTER,
-            bgcolor=INK,
-            border_radius=24,
-            border=ft.Border.all(3, WHITE),
-            shadow=shadow(),
-            content=bus_heading_icon,
-            tooltip="Unidad · dirección de viaje",
-        ),
+        content=bus_container,
     )
 
     mapa = ftm.Map(
@@ -358,11 +377,7 @@ def main(page: ft.Page):
         controls=[
             mapa,
             ft.Container(left=16, top=16, content=controls.badge),
-            ft.Container(
-                right=16,
-                bottom=28,
-                content=controls.center_accessible,
-            ),
+            ft.Container(right=16, bottom=28, content=controls.center_accessible),
         ],
     )
 
@@ -382,22 +397,14 @@ def main(page: ft.Page):
     )
     dock_outer = ft.Container(
         alignment=ft.Alignment.CENTER,
-        padding=ft.Padding.only(
-            left=12,
-            right=12,
-            top=10,
-            bottom=12,
-        ),
+        padding=ft.Padding.only(left=12, right=12, top=10, bottom=12),
         content=dock,
     )
     body = ft.Column(
         expand=True,
         spacing=0,
         controls=[
-            ft.Container(
-                alignment=ft.Alignment.CENTER,
-                content=header,
-            ),
+            ft.Container(alignment=ft.Alignment.CENTER, content=header),
             map_stack,
             dock_outer,
         ],
@@ -416,50 +423,53 @@ def main(page: ft.Page):
     resize()
 
     def should_follow_camera(snapshot):
-        if not map_state["follow_vehicle"] or not map_state["ready"]:
+        if (
+            not map_state["follow_vehicle"]
+            or not map_state["ready"]
+            or not map_state["position_known"]
+        ):
             return False
-
         now = time.monotonic()
         if now - map_state["last_follow_at"] < FOLLOW_CAMERA_INTERVAL_SECONDS:
             return False
-
         distance = VehicleService.haversine_m(
-            (
-                map_state["last_follow_lat"],
-                map_state["last_follow_lon"],
-            ),
+            (map_state["last_follow_lat"], map_state["last_follow_lon"]),
             (snapshot.lat, snapshot.lon),
         )
         if distance < FOLLOW_MIN_DISTANCE_M:
             return False
-
         map_state["last_follow_at"] = now
         map_state["last_follow_lat"] = snapshot.lat
         map_state["last_follow_lon"] = snapshot.lon
         return True
 
     async def consume_vehicle_data():
-        """Consume demo data or the real REST adapter with the same UI contract."""
         try:
             async for snapshot in vehicle_service.stream():
-                map_state["latest_lat"] = snapshot.lat
-                map_state["latest_lon"] = snapshot.lon
+                position_known = getattr(snapshot, "position_known", True)
+                map_state["position_known"] = position_known
+                bus_container.visible = position_known
 
-                bus_marker.coordinates = ftm.MapLatitudeLongitude(
-                    latitude=snapshot.lat,
-                    longitude=snapshot.lon,
-                )
-                bus_heading_icon.rotate = unwrap_heading_radians(
-                    bus_heading_icon.rotate,
-                    snapshot.heading_deg,
-                )
+                if position_known:
+                    map_state["latest_lat"] = snapshot.lat
+                    map_state["latest_lon"] = snapshot.lon
+                    bus_marker.coordinates = ftm.MapLatitudeLongitude(
+                        latitude=snapshot.lat,
+                        longitude=snapshot.lon,
+                    )
+                    bus_heading_icon.rotate = unwrap_heading_radians(
+                        bus_heading_icon.rotate,
+                        snapshot.heading_deg,
+                    )
 
                 card.update_vehicle(snapshot, demo=demo_source)
 
                 if getattr(snapshot, "navigation_from_api", False):
                     seconds = getattr(snapshot, "eta_seconds", None)
                     station = getattr(snapshot, "next_station_name", None)
-                    if station is None:
+                    if not position_known:
+                        station = "Esperando ubicación"
+                    elif station is None:
                         station = (
                             "Terminal del tramo"
                             if seconds == 0
@@ -474,17 +484,13 @@ def main(page: ft.Page):
                     )
 
                 card.station.value = station
-                card.eta.value = (
-                    "Llegando" if seconds == 0 else format_eta(seconds)
-                )
+                card.eta.value = "Llegando" if seconds == 0 else format_eta(seconds)
                 card.eta.size = 18 if seconds == 0 else 24
-
                 if snapshot.status != "online":
                     card.eta.value = "—"
 
                 page.update()
-
-                if should_follow_camera(snapshot):
+                if position_known and should_follow_camera(snapshot):
                     await move_camera(snapshot.lat, snapshot.lon)
 
         except Exception:
@@ -493,7 +499,14 @@ def main(page: ft.Page):
             card.eta.value = "—"
             page.update()
 
+    async def consume_alerts():
+        async for alert in alert_service.stream():
+            alerts.set_alert(alert)
+            page.update()
+
     page.run_task(consume_vehicle_data)
+    if alert_service is not None:
+        page.run_task(consume_alerts)
 
 
 if __name__ == "__main__":
