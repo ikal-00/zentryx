@@ -4,8 +4,10 @@ from flask import Blueprint, current_app, request
 
 from ..api_utils import (
     PayloadValidationError,
+    authenticate_driver_vehicle,
     authenticate_vehicle_device,
     parse_device_authorization,
+    parse_driver_authorization,
     validate_incident_payload,
     validate_telemetry_payload,
 )
@@ -23,9 +25,9 @@ def _json_body():
     return data, None
 
 
-def _device_token():
+def _authorization(parser):
     try:
-        return parse_device_authorization(request.headers.get("Authorization")), None
+        return parser(request.headers.get("Authorization")), None
     except PayloadValidationError as exc:
         return None, ({"error": exc.message}, 401)
 
@@ -44,7 +46,7 @@ def post_telemetry():
     if error:
         return error
 
-    token, error = _device_token()
+    token, error = _authorization(parse_device_authorization)
     if error:
         return error
 
@@ -81,15 +83,9 @@ def post_telemetry():
                     satellites,
                     observed_at
                 ) VALUES (
-                    %s,
-                    %s,
-                    %s,
+                    %s, %s, %s,
                     ST_SetSRID(ST_MakePoint(%s, %s), 4326),
-                    %s,
-                    %s,
-                    %s,
-                    %s,
-                    %s
+                    %s, %s, %s, %s, %s
                 )
                 ON CONFLICT (device_id, sequence) DO NOTHING
                 RETURNING id;
@@ -108,7 +104,6 @@ def post_telemetry():
                 ),
             )
             inserted = cur.fetchone()
-
             if inserted is not None:
                 cur.execute(
                     """
@@ -145,18 +140,13 @@ def list_alerts():
         params.append(vehicle_id)
 
     query = f"""
-        SELECT
-            alert_id,
-            route_id,
-            vehicle_id,
-            type,
-            message,
-            severity,
-            created_at,
-            active
+        SELECT alert_id, route_id, vehicle_id, type, message,
+               severity, created_at, active
         FROM alerts
         WHERE {' AND '.join(clauses)}
-        ORDER BY created_at DESC;
+        ORDER BY
+            CASE severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
+            created_at DESC;
     """
 
     with pool.connection() as conn:
@@ -187,7 +177,7 @@ def create_incident():
     if error:
         return error
 
-    token, error = _device_token()
+    token, error = _authorization(parse_driver_authorization)
     if error:
         return error
 
@@ -197,7 +187,7 @@ def create_incident():
         return _validation_error(exc)
 
     pool = current_app.extensions["POOL"]
-    _, auth_error = authenticate_vehicle_device(
+    driver_id, auth_error = authenticate_driver_vehicle(
         pool,
         vehicle_id=payload["vehicle_id"],
         token=token,
@@ -216,15 +206,13 @@ def create_incident():
                 INSERT INTO incidents (
                     incident_id,
                     vehicle_id,
+                    driver_id,
                     type,
                     description,
                     position,
                     observed_at
                 ) VALUES (
-                    %s,
-                    %s,
-                    %s,
-                    %s,
+                    %s, %s, %s, %s, %s,
                     ST_SetSRID(ST_MakePoint(%s, %s), 4326),
                     %s
                 );
@@ -232,6 +220,7 @@ def create_incident():
                 (
                     incident_id,
                     payload["vehicle_id"],
+                    driver_id,
                     payload["type"],
                     payload["description"],
                     position["lon"],
@@ -240,4 +229,8 @@ def create_incident():
                 ),
             )
 
-    return {"incident_id": incident_id, "created": True}, 201
+    return {
+        "incident_id": incident_id,
+        "driver_id": driver_id,
+        "created": True,
+    }, 201
