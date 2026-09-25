@@ -16,7 +16,8 @@ class ApiVehicleSnapshot(VehicleSnapshot):
     next_station_name: str | None = None
     eta_seconds: float | None = None
     distance_remaining_m: float | None = None
-    navigation_from_api: bool = False
+    navigation_from_api: bool = True
+    position_known: bool = True
 
 
 class ApiVehicleService(VehicleService):
@@ -62,9 +63,19 @@ class ApiVehicleService(VehicleService):
 
         navigation = payload.get("navigation") or {}
         direction_name = navigation.get("direction")
-        direction = 1 if direction_name == "forward" else -1 if direction_name == "reverse" else 1
+        direction = (
+            1
+            if direction_name == "forward"
+            else -1
+            if direction_name == "reverse"
+            else 0
+        )
         direction_label = navigation.get("direction_label") or (
-            self.forward_direction_label if direction == 1 else self.reverse_direction_label
+            self.forward_direction_label
+            if direction == 1
+            else self.reverse_direction_label
+            if direction == -1
+            else "Dirección por determinar"
         )
         next_station = navigation.get("next_station") or {}
 
@@ -92,7 +103,28 @@ class ApiVehicleService(VehicleService):
                 if navigation.get("distance_remaining_m") is not None
                 else None
             ),
-            navigation_from_api=bool(navigation),
+            position_known=True,
+        )
+
+    def _offline_snapshot(self):
+        lat, lon = self.route_coordinates[0]
+        return ApiVehicleSnapshot(
+            vehicle_id=self.vehicle_id,
+            route_id=self.route_id,
+            status="offline",
+            lat=lat,
+            lon=lon,
+            speed_mps=0.0,
+            occupancy_level="unknown",
+            direction=0,
+            direction_label="Dirección por determinar",
+            progress_m=0.0,
+            route_length_m=self.route_length_m,
+            heading_deg=0.0,
+            next_station_name=None,
+            eta_seconds=None,
+            distance_remaining_m=None,
+            position_known=False,
         )
 
     async def stream(self):
@@ -105,4 +137,6 @@ class ApiVehicleService(VehicleService):
             except (HTTPError, URLError, TimeoutError, ValueError, KeyError, json.JSONDecodeError):
                 if last_snapshot is not None:
                     yield replace(last_snapshot, status="offline", eta_seconds=None)
+                else:
+                    yield self._offline_snapshot()
             await asyncio.sleep(self.poll_interval_seconds)
