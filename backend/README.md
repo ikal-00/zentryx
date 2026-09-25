@@ -72,6 +72,38 @@ docker compose up -d --build
 
 No uses `docker compose down -v` salvo que quieras borrar deliberadamente la base de datos de desarrollo.
 
+## Perfil demo compartido
+
+Para probar de punta a punta rutas, estaciones, telemetría, unidad, dirección, ETA y alertas sin conectar todavía el GPS físico, existe un simulador opt-in:
+
+```bash
+docker compose --profile demo up -d --build
+```
+
+El simulador crea únicamente recursos de desarrollo dedicados:
+
+```text
+device_id  = gps-demo-01
+vehicle_id = unit-demo-01
+route_id   = route-l2
+```
+
+Además mantiene una alerta de prueba activa y envía telemetría fresca por `POST /v1/telemetry` usando la autenticación real de dispositivo. La app puede consumir esa unidad igual que consumiría una unidad física.
+
+Para apagar solo el simulador sin apagar API ni base de datos:
+
+```bash
+docker compose --profile demo stop simulator
+```
+
+La verificación completa desde una máquina con acceso Tailscale es:
+
+```bash
+python3 scripts/check_shared_api.py http://<TAILSCALE_IP>:5000
+```
+
+Cuando se conecte el GPS físico, no es necesario usar el perfil `demo`.
+
 ## Tokens
 
 Dispositivos GPS:
