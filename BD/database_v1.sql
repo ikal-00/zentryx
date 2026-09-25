@@ -2,8 +2,7 @@
 -- PostgreSQL + PostGIS
 -- Coherente con contracts/api_v1.md
 --
--- Este archivo NO reemplaza ni borra BD/Gps_sql/Gps_sql.sql.
--- Es la propuesta integrada v1 para rutas, estaciones, unidades, GPS,
+-- Fuente de verdad para rutas, estaciones, unidades, GPS,
 -- telemetría, alertas e incidentes.
 
 BEGIN;
@@ -11,20 +10,44 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- =========================================================
--- RUTAS
+-- RUTAS / SERVICIOS
 -- =========================================================
 
 CREATE TABLE IF NOT EXISTS routes (
     route_id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
+    line_id TEXT,
+    line_label TEXT,
+    service_id TEXT,
+    service_name TEXT,
+    origin_name TEXT,
+    destination_name TEXT,
+    direction_forward_label TEXT,
+    direction_reverse_label TEXT,
     path geometry(LineString, 4326),
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Permite volver a ejecutar este archivo sobre una base creada antes de que
+-- existieran las variantes/servicios de ruta.
+ALTER TABLE routes
+    ADD COLUMN IF NOT EXISTS line_id TEXT,
+    ADD COLUMN IF NOT EXISTS line_label TEXT,
+    ADD COLUMN IF NOT EXISTS service_id TEXT,
+    ADD COLUMN IF NOT EXISTS service_name TEXT,
+    ADD COLUMN IF NOT EXISTS origin_name TEXT,
+    ADD COLUMN IF NOT EXISTS destination_name TEXT,
+    ADD COLUMN IF NOT EXISTS direction_forward_label TEXT,
+    ADD COLUMN IF NOT EXISTS direction_reverse_label TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_routes_path_gist
     ON routes USING GIST (path);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_routes_service_id_unique
+    ON routes(service_id)
+    WHERE service_id IS NOT NULL;
 
 -- =========================================================
 -- ESTACIONES
@@ -74,6 +97,9 @@ CREATE TABLE IF NOT EXISTS devices (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+COMMENT ON COLUMN devices.token_hash IS
+    'SHA-256 device token hash. Canonical format: sha256:<64 lowercase hex chars>.';
 
 -- =========================================================
 -- UNIDADES
@@ -248,8 +274,29 @@ ORDER BY t.vehicle_id, t.observed_at DESC, t.id DESC;
 -- =========================================================
 -- No se ejecutan automáticamente. Son solo referencia.
 --
--- INSERT INTO routes (route_id, name)
--- VALUES ('route-l2', 'Mexibús Línea 2');
+-- INSERT INTO routes (
+--     route_id,
+--     name,
+--     line_id,
+--     line_label,
+--     service_id,
+--     service_name,
+--     origin_name,
+--     destination_name,
+--     direction_forward_label,
+--     direction_reverse_label
+-- ) VALUES (
+--     'route-l2',
+--     'Mexibús Línea 2',
+--     'mexibus-l2',
+--     'L2',
+--     'l2-ordinary',
+--     'Servicio ordinario',
+--     'La Quebrada',
+--     'Las Américas',
+--     'La Quebrada → Las Américas',
+--     'Las Américas → La Quebrada'
+-- );
 --
 -- INSERT INTO stations (station_id, name, position)
 -- VALUES (
@@ -261,8 +308,11 @@ ORDER BY t.vehicle_id, t.observed_at DESC, t.id DESC;
 -- INSERT INTO route_stations (route_id, station_id, stop_order)
 -- VALUES ('route-l2', 'station-bandera-tultitlan', 1);
 --
+-- Para generar token_hash desde Python:
+-- python -c "import hashlib; t='TOKEN'; print('sha256:'+hashlib.sha256(t.encode()).hexdigest())"
+--
 -- INSERT INTO devices (device_id, name, token_hash)
--- VALUES ('gps-01', 'GPS prototipo 01', '<HASH_DEL_TOKEN>');
+-- VALUES ('gps-01', 'GPS prototipo 01', 'sha256:<HASH_DEL_TOKEN>');
 --
 -- INSERT INTO vehicles (vehicle_id, display_name, route_id, device_id)
 -- VALUES ('unit-01', 'Unidad Demo 01', 'route-l2', 'gps-01');
