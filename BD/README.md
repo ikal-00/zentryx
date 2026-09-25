@@ -8,25 +8,36 @@ La fuente de verdad actual es `database_v1.sql`.
 psql "$POSTGRES_URL" -f BD/database_v1.sql
 ```
 
-El archivo ya incluye PostGIS, rutas/servicios, estaciones, dispositivos, unidades, telemetría, alertas, incidentes y la vista `vehicle_latest_telemetry`.
+Incluye PostGIS, rutas/servicios, estaciones, dispositivos, unidades, conductores, asignaciones, telemetría, alertas, incidentes y `vehicle_latest_telemetry`.
 
 ## Base existente
 
-Si la base fue creada antes de la alineación de API, ejecuta:
+Ejecuta las migraciones en orden:
 
 ```bash
 psql "$POSTGRES_URL" -f BD/migrations/002_api_alignment.sql
+psql "$POSTGRES_URL" -f BD/migrations/003_runtime_hardening.sql
 ```
 
-La migración agrega metadatos de línea/servicio a `routes` y documenta el formato de `devices.token_hash`.
+`003_runtime_hardening.sql` añade metadata de red/velocidad de ruta, elimina la restricción que impedía compartir nombre comercial entre servicios y crea autenticación/asignación de conductores.
+
+## Cargar la Línea 2
+
+Después del esquema/migraciones:
+
+```bash
+POSTGRES_URL="$POSTGRES_URL" python -m backend.seed_routes
+```
+
+El importador lee `app/assets/routes/l2_ordinary_route.geojson` y `l2_ordinary_stations.geojson`, hace upsert de la ruta, las 43 estaciones y su `stop_order`.
 
 ## Archivo legado
 
-`Gps_sql/Gps_sql.sql` está deprecado. No debe ejecutarse: usaba nombres de tablas incompatibles con la API actual y se conserva solo como referencia histórica.
+`Gps_sql/Gps_sql.sql` está deprecado y no debe ejecutarse.
 
 ## Tokens
 
-`devices.token_hash` no guarda el token en texto plano. Formato canónico:
+`devices.token_hash` y `drivers.token_hash` almacenan:
 
 ```text
 sha256:<64 caracteres hexadecimales>
