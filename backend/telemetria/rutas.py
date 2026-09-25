@@ -1,301 +1,243 @@
-from flask import Blueprint
-from flask import current_app
-from flask import request
+from uuid import uuid4
 
+from flask import Blueprint, current_app, request
 
-telemetria = Blueprint(
-    "telemetria",
-    __name__,
-    url_prefix="/"
+from ..api_utils import (
+    PayloadValidationError,
+    authenticate_vehicle_device,
+    parse_device_authorization,
+    validate_incident_payload,
+    validate_telemetry_payload,
 )
 
-@telemetria.post("/v1/telemetry")
-def Telemetry():
 
-    # ---------------------------------------
-    # 1. Validar Content-Type
-    # ---------------------------------------
+telemetria = Blueprint("telemetria", __name__, url_prefix="/v1")
 
+
+def _json_body():
     if not request.is_json:
-        return {
-            "error": "invalid_content_type"
-        }, 400 ;
-
-    # ---------------------------------------
-    # 2. Obtener y validar JSON
-    # ---------------------------------------
-
-    data = request.get_json(silent=True);
+        return None, ({"error": "invalid_content_type"}, 400)
+    data = request.get_json(silent=True)
     if data is None:
-        return {
-            "error": "invalid_json"
-        }, 400 ;
+        return None, ({"error": "invalid_json"}, 400)
+    return data, None
 
-    # ---------------------------------------
-    # 3. Obtener Authorization
-    # ---------------------------------------
 
-    authorization = request.headers.get("Authorization")
+def _device_token():
+    try:
+        return parse_device_authorization(request.headers.get("Authorization")), None
+    except PayloadValidationError as exc:
+        return None, ({"error": exc.message}, 401)
 
-    if not authorization:
-        return {
-            "error": "missing_authorization"
-        }, 401
+
+def _validation_error(exc):
+    return {
+        "error": "invalid_data",
+        "field": exc.field,
+        "detail": exc.message,
+    }, 422
+
+
+@telemetria.post("/telemetry")
+def post_telemetry():
+    data, error = _json_body()
+    if error:
+        return error
+
+    token, error = _device_token()
+    if error:
+        return error
 
     try:
-        scheme, auth = authorization.split(" ", 1)
-    except ValueError:
-        return {
-            "error": "invalid_authorization"
-        }, 401
-
-    if scheme != "Device":
-        return {
-            "error": "invalid_authorization"
-        }, 401
-
-    # ---------------------------------------
-    # 4. Obtener pool
-    # ---------------------------------------
+        payload = validate_telemetry_payload(data)
+    except PayloadValidationError as exc:
+        return _validation_error(exc)
 
     pool = current_app.extensions["POOL"]
+    _, auth_error = authenticate_vehicle_device(
+        pool,
+        vehicle_id=payload["vehicle_id"],
+        device_id=payload["device_id"],
+        token=token,
+    )
+    if auth_error == "invalid_authorization":
+        return {"error": auth_error}, 401
+    if auth_error:
+        return {"error": auth_error}, 404
 
-    # ---------------------------------------
-    # 5. Validar campos básicos
-    # ---------------------------------------
-
-    required = [
-        "device_id",
-        "vehicle_id",
-        "seq",
-        "position",
-        "observed_at"
-    ]
-
-    if any(field not in data for field in required):
-        return {
-            "error": "invalid_data"
-        }, 422 ;
-
-    # ---------------------------------------
-    # 6. Comprobar device + vehicle
-    # ---------------------------------------
-
+    position = payload["position"]
     with pool.connection() as conn:
         with conn.cursor() as cur:
-
-            cur.execute("""
-                SELECT
-                    d.device_id,
-                    v.vehicle_id
-                FROM devices AS d
-
-                JOIN vehicles AS v
-                    ON v.device_id = d.device_id
-
-                WHERE d.device_id = %s
-                  AND v.vehicle_id = %s
-                  AND d.token_hash = %s
-            """, (
-                data["device_id"],
-                data["vehicle_id"],
-                auth
-            ))
-
-            resp = cur.fetchone()
-
-    # ---------------------------------------
-    # 7. Device / vehicle inexistente
-    # ---------------------------------------
-
-    if resp is None:
-        return {
-            "error": "device_or_vehicle_not_found"
-        }, 404
-
-    # ---------------------------------------
-    # 8. Aceptar telemetría
-    # ---------------------------------------
-
-    with pool.connection() as conn:
-        with conn.cursor() as cur:
-
-            cur.execute("""
-                UPDATE telemetry
-                SET
-                    position = ST_SetSRID(
-                        ST_MakePoint(%s, %s),
-                        4326
-                    ),
-                    speed_mps = %s,
-                    accuracy_m = %s,
-                    heading_deg = %s,
-                    satellites = %s,
-                    observed_at = %s
-                WHERE device_id = %s
-                AND vehicle_id = %s
-                AND sequence = %s
-            """, (
-                data["position"]["lon"],
-                data["position"]["lat"],
-                data["position"].get("speed"),
-                data["position"].get("accuracy"),
-                data["position"].get("heading"),
-                data["position"].get("satellites"),
-                data["observed_at"],
-                data["device_id"],
-                data["vehicle_id"],
-                data["seq"]
-            ));
-
-            resp = cur.rowcount;
-    
-    return {
-        "accepted": True,
-        "device_id": data["device_id"],
-        "seq": data["seq"]
-    }, 202 ;
-
-@telemetria.get("/v1/alerts")
-def Alert():
-    pool = current_app.extensions["POOL"];
-
-    with pool.connection() as conn:
-        with conn.cursor() as cur:
-
-            cur.execute("""
-                SELECT
-                    alert_id,
-                    route_id,
+            cur.execute(
+                """
+                INSERT INTO telemetry (
+                    device_id,
                     vehicle_id,
-                    type,
-                    message,
-                    severity,
-                    created_at,
-                    active
-                FROM alerts
-                WHERE active = TRUE
-                  AND created_at >= CURRENT_DATE
-                  AND created_at < CURRENT_DATE + INTERVAL '1 day'
-                ORDER BY created_at DESC;
-            """);
+                    sequence,
+                    position,
+                    speed_mps,
+                    accuracy_m,
+                    heading_deg,
+                    satellites,
+                    observed_at
+                ) VALUES (
+                    %s,
+                    %s,
+                    %s,
+                    ST_SetSRID(ST_MakePoint(%s, %s), 4326),
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s
+                )
+                ON CONFLICT (device_id, sequence) DO NOTHING
+                RETURNING id;
+                """,
+                (
+                    payload["device_id"],
+                    payload["vehicle_id"],
+                    payload["seq"],
+                    position["lon"],
+                    position["lat"],
+                    position["speed_mps"],
+                    position["accuracy_m"],
+                    position["heading_deg"],
+                    position["satellites"],
+                    payload["observed_at"],
+                ),
+            )
+            inserted = cur.fetchone()
 
-            rows = cur.fetchall();
+            if inserted is not None:
+                cur.execute(
+                    """
+                    UPDATE vehicles
+                    SET status = 'online', updated_at = NOW()
+                    WHERE vehicle_id = %s;
+                    """,
+                    (payload["vehicle_id"],),
+                )
 
-    if rows is None:
-        return 202;
+    response = {
+        "accepted": True,
+        "device_id": payload["device_id"],
+        "seq": payload["seq"],
+    }
+    if inserted is None:
+        response["duplicate"] = True
+    return response, 202
 
-    alerts = [];
 
-    for row in rows:
-        alerts.append({
-            "alert_id": row[0],
-            "route_id": row[1],
-            "vehicle_id": row[2],
-            "type": row[3],
-            "message": row[4],
-            "severity": row[5],
-            "created_at": row[6].isoformat(),
-            "active": row[7]
-        });
+@telemetria.get("/alerts")
+def list_alerts():
+    pool = current_app.extensions["POOL"]
+    route_id = request.args.get("route_id")
+    vehicle_id = request.args.get("vehicle_id")
+
+    clauses = ["active = TRUE"]
+    params = []
+    if route_id:
+        clauses.append("(route_id = %s OR route_id IS NULL)")
+        params.append(route_id)
+    if vehicle_id:
+        clauses.append("(vehicle_id = %s OR vehicle_id IS NULL)")
+        params.append(vehicle_id)
+
+    query = f"""
+        SELECT
+            alert_id,
+            route_id,
+            vehicle_id,
+            type,
+            message,
+            severity,
+            created_at,
+            active
+        FROM alerts
+        WHERE {' AND '.join(clauses)}
+        ORDER BY created_at DESC;
+    """
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, tuple(params))
+            rows = cur.fetchall()
 
     return {
-        "alerts": alerts
-    }, 200 ;
+        "alerts": [
+            {
+                "alert_id": row[0],
+                "route_id": row[1],
+                "vehicle_id": row[2],
+                "type": row[3],
+                "message": row[4],
+                "severity": row[5],
+                "created_at": row[6].isoformat().replace("+00:00", "Z"),
+                "active": row[7],
+            }
+            for row in rows
+        ]
+    }, 200
 
-@telemetria.post("/v1/incidents")
-def Incident():
-    if not request.is_json:
-        return {
-            "error": "invalid_content_type"
-        }, 400 ;    
 
-    data = request.get_json(silent=True);
-    if data is None:
-            return {
-                "error": "invalid_json"
-            }, 400 ;
+@telemetria.post("/incidents")
+def create_incident():
+    data, error = _json_body()
+    if error:
+        return error
 
-    authorization = request.headers.get("Authorization");
-
-    if not authorization:
-            return {
-                "error": "missing_authorization"
-            }, 401 ;
+    token, error = _device_token()
+    if error:
+        return error
 
     try:
-        scheme, auth = authorization.split(" ", 1)
-    except ValueError:
-        return {
-            "error": "invalid_authorization"
-        }, 401 ;
+        payload = validate_incident_payload(data)
+    except PayloadValidationError as exc:
+        return _validation_error(exc)
 
-    if scheme != "Device":
-        return {
-            "error": "invalid_authorization"
-        }, 401 ;
+    pool = current_app.extensions["POOL"]
+    _, auth_error = authenticate_vehicle_device(
+        pool,
+        vehicle_id=payload["vehicle_id"],
+        token=token,
+    )
+    if auth_error == "invalid_authorization":
+        return {"error": auth_error}, 401
+    if auth_error:
+        return {"error": auth_error}, 404
 
-    pool = current_app.extensions["POOL"];
-
-    required = [
-        "vehicle_id",
-        "type",
-        "description",
-        "position",
-        "observed_at"
-    ];
-
-    if any(field not in data for field in required):
-            return {
-                "error": "invalid_data"
-            }, 422 ;
-
+    incident_id = f"incident-{uuid4().hex[:12]}"
+    position = payload["position"]
     with pool.connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT
-                        d.device_id,
-                        v.vehicle_id
-                    FROM devices AS d
-    
-                    JOIN vehicles AS v
-                        ON v.device_id = d.device_id
-    
-                    WHERE d.device_id = %s
-                      AND v.vehicle_id = %s
-                      AND d.token_hash = %s
-                """, (
-                    data["device_id"],
-                    data["vehicle_id"],
-                    auth
-                ));
-    
-                resp = cur.fetchone();
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO incidents (
+                    incident_id,
+                    vehicle_id,
+                    type,
+                    description,
+                    position,
+                    observed_at
+                ) VALUES (
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    ST_SetSRID(ST_MakePoint(%s, %s), 4326),
+                    %s
+                );
+                """,
+                (
+                    incident_id,
+                    payload["vehicle_id"],
+                    payload["type"],
+                    payload["description"],
+                    position["lon"],
+                    position["lat"],
+                    payload["observed_at"],
+                ),
+            )
 
-    if resp is None:
-            return {
-                "error": "device_or_vehicle_not_found"
-            }, 404 ;
-
-    with pool.connection() as conn:
-                with conn.cursor() as cur:
-        
-                    cur.execute("""
-                        SELECT
-                            d.device_id,
-                            v.vehicle_id
-                        FROM devices AS d
-        
-                        JOIN vehicles AS v
-                            ON v.device_id = d.device_id
-        
-                        WHERE d.device_id = %s
-                          AND v.vehicle_id = %s
-                          AND d.token_hash = %s
-                    """, (
-                        data["device_id"],
-                        data["vehicle_id"],
-                        auth
-                    ));
-        
-                    resp = cur.fetchone();
+    return {"incident_id": incident_id, "created": True}, 201
