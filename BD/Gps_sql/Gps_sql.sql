@@ -1,27 +1,11 @@
-CREATE EXTENSION IF NOT EXISTS postgis;
-
-CREATE TABLE estaciones (
-    id SERIAL PRIMARY KEY,
-    nombre TEXT NOT NULL UNIQUE,
-    pocision geometry(Point , 4326) NOT NULL
-);
-
-CREATE TABLE rutas (
-    id SERIAL PRIMARY KEY,
-    nombre_ruta TEXT NOT NULL UNIQUE,
-);
-
-CREATE TABLE comp_ruta (
-    id SERIAL PRIMARY KEY,
-    ruta_id INTEGER NOT NULL,
-    estacion_id INTEGER NOT NULL,
-
-    orden INTEGER NOT NULL,
-
-    FOREIGN KEY (ruta_id)
-        REFERENCES rutas(id),
-    FOREIGN KEY (estacion_id)
-        REFERENCES estaciones(id)
-    
-    UNIQUE (estacion_id,orden);
-);
+-- DEPRECATED
+--
+-- Este esquema antiguo usaba tablas incompatibles con la API actual
+-- (estaciones/rutas/comp_ruta) y contenía errores de sintaxis.
+--
+-- La fuente de verdad de la base de datos es ahora:
+--   1) BD/database_v1.sql
+--   2) BD/migrations/002_api_alignment.sql
+--
+-- Se conserva este archivo únicamente como referencia histórica para evitar
+-- que alguien lo ejecute accidentalmente pensando que sigue siendo vigente.
