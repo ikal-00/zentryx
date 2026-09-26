@@ -2,9 +2,9 @@
 
 ## Flujo real
 
-Flet carga ruta/estaciones y consulta unidad/alertas periódicamente. Sin API configurada usa demo local. Si falla la carga inicial de ruta puede usar GeoJSON; una desconexión conserva la última posición y oculta ETA.
+Los clientes consumen la misma API `/v1`. Flutter es el cliente móvil nativo y Flet permanece como respaldo durante la transición. Ambos leen ruta/estaciones, unidad y alertas sin acceder directamente a PostgreSQL. En una desconexión conservan el último estado válido; el backend sigue siendo la autoridad de navegación y ETA.
 
-El simulador compartido aprovisiona dispositivo, unidad y alerta demo en PostgreSQL. Luego publica `/v1/telemetry` con token efímero. La API valida, autentica y guarda idempotentemente. La lectura de vehículos combina última muestra, historial reciente, proyección sobre ruta y próxima estación. En modo API, el servidor es autoridad de navegación y ETA.
+El simulador compartido aprovisiona dispositivo, unidad y alerta demo en PostgreSQL. Luego publica `/v1/telemetry` con token efímero. La API valida, autentica y guarda idempotentemente. La lectura de vehículos combina última muestra, historial reciente, proyección sobre ruta y próxima estación.
 
 ## Backend
 
@@ -25,7 +25,26 @@ Las lecturas sencillas de rutas/alertas llaman repositorios directamente: no se 
 
 `API_Global.py` y los exports públicos de `api_utils.py` son wrappers de compatibilidad. El factory canónico continúa siendo `backend.app:create_app()`.
 
-## Frontend
+## Cliente móvil Flutter
+
+`mobile/` implementa el MVP de pasajero para iOS y Android sin duplicar lógica de backend.
+
+| Módulo | Responsabilidad |
+| --- | --- |
+| `lib/app/` | App, tema global y lifecycle |
+| `lib/core/config/` | URL de API, IDs y cadencias |
+| `lib/core/network/` | Cliente HTTP y traducción de errores |
+| `lib/design_system/` | Tokens, superficies y marca Zentryx |
+| `lib/features/transit/domain/` | Modelos del contrato API v1 |
+| `lib/features/transit/data/` | Repositorio y caché estática |
+| `lib/features/transit/application/` | Estado, polling, pausa y reanudación |
+| `lib/features/transit/presentation/` | Mapa, HUD, ruta, estaciones y animaciones |
+
+La ruta y las estaciones se cachean durante la sesión. La unidad y las alertas se consultan cada 2 s; la posición y el heading se interpolan visualmente entre muestras. El polling se pausa en segundo plano y se refresca al volver para limitar uso de batería y red.
+
+`Zentryx Mobile CI` ejecuta analyzer, tests y builds de Android debug e iOS simulator. La retirada definitiva de Flet requiere una prueba manual corta en dispositivos reales; el detalle está en `mobile/PARITY.md`.
+
+## Cliente Flet de respaldo
 
 | Módulo | Responsabilidad |
 | --- | --- |
@@ -43,7 +62,7 @@ Imports mediante el paquete `app`; solo el entrypoint directo añade la raíz al
 
 ## Infraestructura
 
-Compose sigue en raíz, proyecto `zentryx`, servicios `db/api/simulator`, perfil `demo` y volumen lógico `zentryx_db`. Esquema y migraciones no cambian. No se agregan microservicios, ORM o infraestructura adicional.
+Compose sigue en raíz, proyecto `zentryx`, servicios `db/api/simulator`, perfil `demo` y volumen lógico `zentryx_db`. Esquema y migraciones no cambian. Tailscale proporciona acceso privado desde los clientes al servidor compartido. No se agregan microservicios, ORM o infraestructura adicional.
 
 ## Hardware y firmware
 
@@ -58,9 +77,9 @@ Los archivos temporales y cachés de KiCad no forman parte de las fuentes del pr
 1. Historial automático de migraciones, respaldos y prueba de restauración: requiere coordinación operativa.
 2. Retención de telemetría e índices basados en carga real.
 3. Geometría duplicada entre navegación y demos: unificación pendiente de equivalencia numérica.
-4. Polling REST y herencia del adaptador API desde la fuente demo: evaluar composición al incorporar hardware.
-5. La pantalla aún concentra bindings Flet; dividir más cuando exista otra pantalla real.
+4. Evolucionar polling REST a tiempo real cuando el contrato `/v1/realtime` esté definido y justificado.
+5. Retirar Flet solo después de validar Flutter en hardware iOS/Android real.
 6. Lock completo de dependencias transitivas y retiro de wrappers cuando se descarten consumidores externos.
 7. GeoJSON exprés y prototipos conservados; no representan servicios activos o implementaciones completas.
 
-La validación eléctrica/DRC del proyecto KiCad sigue siendo una tarea de hardware y no forma parte de la suite Python/CI actual.
+La validación eléctrica/DRC del proyecto KiCad sigue siendo una tarea de hardware y no forma parte de la suite de software actual.
