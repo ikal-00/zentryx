@@ -79,7 +79,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         color: CupertinoDynamicColor.resolve(
                           ZentryxColors.ink,
                           context,
-                        ).withOpacity(0.88),
+                        ).withValues(alpha: 0.88),
                       ),
                     ],
                   ),
@@ -388,7 +388,7 @@ class _StatusCard extends StatelessWidget {
                   color: CupertinoDynamicColor.resolve(
                     ZentryxColors.accent,
                     context,
-                  ).withOpacity(0.92),
+                  ).withValues(alpha: 0.92),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
@@ -421,7 +421,7 @@ class _StatusCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               decoration: BoxDecoration(
-                color: _alertColor(alert.severity).withOpacity(0.11),
+                color: _alertColor(alert.severity).withValues(alpha: 0.11),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -459,7 +459,7 @@ class _StatusCard extends StatelessWidget {
                 ),
                 CupertinoButton(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minSize: 30,
+                  minimumSize: const Size(30, 30),
                   onPressed: onRefresh,
                   child: state.refreshing
                       ? const CupertinoActivityIndicator(radius: 8)
@@ -524,13 +524,13 @@ class _Glass extends StatelessWidget {
             color: CupertinoDynamicColor.resolve(
               ZentryxColors.surface,
               context,
-            ).withOpacity(0.93),
+            ).withValues(alpha: 0.93),
             borderRadius: BorderRadius.circular(borderRadius),
             border: Border.all(
               color: CupertinoDynamicColor.resolve(
                 ZentryxColors.line,
                 context,
-              ).withOpacity(0.9),
+              ).withValues(alpha: 0.9),
             ),
             boxShadow: const [
               BoxShadow(

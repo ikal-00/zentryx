@@ -28,7 +28,9 @@ jobs:
           cache: true
       - name: Generate standard mobile platform scaffold
         working-directory: mobile
-        run: flutter create . --platforms=android,ios --org com.zentryx --project-name zentryx_mobile
+        run: |
+          flutter create . --platforms=android,ios --org com.zentryx --project-name zentryx_mobile
+          rm -f test/widget_test.dart
       - name: Install dependencies
         working-directory: mobile
         run: flutter pub get

@@ -48,7 +48,10 @@ class _ZentryxMarkPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [ink.withOpacity(0.95), ink.withOpacity(0.55)],
+          colors: [
+            ink.withValues(alpha: 0.95),
+            ink.withValues(alpha: 0.55),
+          ],
         ).createShader(rect),
     );
 

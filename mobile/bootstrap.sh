@@ -13,6 +13,7 @@ if [[ ! -d ios || ! -d android ]]; then
     --platforms=ios,android \
     --org com.zentryx \
     --project-name zentryx_mobile
+  rm -f test/widget_test.dart
 fi
 
 flutter pub get
