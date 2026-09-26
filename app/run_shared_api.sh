@@ -2,15 +2,19 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$SCRIPT_DIR"
 
 if [ -f .venv/bin/activate ]; then
   # shellcheck disable=SC1091
   source .venv/bin/activate
+elif [ -f "$REPO_DIR/.venv/bin/activate" ]; then
+  # shellcheck disable=SC1091
+  source "$REPO_DIR/.venv/bin/activate"
 fi
 
 if ! command -v flet >/dev/null 2>&1; then
-  echo "Flet no está instalado en este entorno. Activa app/.venv o instala app/requirements.txt." >&2
+  echo "Flet no está instalado. Ejecuta 'make setup' desde la raíz o instala app/requirements.txt." >&2
   exit 1
 fi
 

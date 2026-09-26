@@ -1,14 +1,35 @@
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyd
 .venv/
 venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 
-# PyCharm
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDEs
 .idea/
+*.iml
+
+# VS Code local state
+.vscode/*.local.json
 
 # macOS
 .DS_Store
 
-# Secrets
-.env
+# Logs / runtime
+*.log
+*.pid
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
