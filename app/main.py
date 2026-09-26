@@ -336,7 +336,7 @@ def main(page: ft.Page):
         shadow=shadow(),
         content=bus_heading_icon,
         tooltip="Unidad · dirección de viaje",
-        visible=demo_source,
+        opacity=1.0 if demo_source else 0.0,
     )
     bus_marker = ftm.Marker(
         coordinates=ftm.MapLatitudeLongitude(latitude=bus_lat, longitude=bus_lon),
@@ -448,7 +448,7 @@ def main(page: ft.Page):
             async for snapshot in vehicle_service.stream():
                 position_known = getattr(snapshot, "position_known", True)
                 map_state["position_known"] = position_known
-                bus_container.visible = position_known
+                bus_container.opacity = 1.0 if position_known else 0.0
 
                 if position_known:
                     map_state["latest_lat"] = snapshot.lat
