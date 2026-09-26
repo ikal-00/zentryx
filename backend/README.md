@@ -23,16 +23,16 @@ PORT=5000
 
 ## Organización
 
-```text
-backend/
-├── app.py             App factory y entrypoint
-├── routes/            Blueprints HTTP
-├── api_utils.py       Validación y autenticación
-├── navigation.py      Proyección, dirección y ETA
-├── seed_routes.py     Seed de Línea 2
-├── dev_simulator.py   Telemetría demo compartida
-└── tests/             Unit + integración PostGIS
-```
+| Ubicación | Responsabilidad |
+| --- | --- |
+| `app.py`, `config.py` | Factory y configuración |
+| `routes/` | HTTP por recurso |
+| `services/` | Reglas y composición de datos |
+| `repositories/` | SQL y transacciones |
+| `auth.py`, `validation.py` | Tokens y validación pura |
+| `navigation.py` | Proyección y ETA |
+| `seed_routes.py`, `dev_simulator.py` | Herramientas de desarrollo |
+| `tests/` | Unitarias e integración PostGIS |
 
 ## Base de datos
 
@@ -61,7 +61,7 @@ El perfil `demo` crea `unit-demo-01` y publica telemetría por la API real. No r
 python3 scripts/check_shared_api.py http://<TAILSCALE_IP>:5000
 ```
 
-No uses `docker compose down -v` salvo que quieras borrar deliberadamente la base de desarrollo.
+Nunca elimines los volúmenes persistentes. Detén servicios con `docker compose --profile demo stop`.
 
 ## Endpoints MVP
 
@@ -99,6 +99,6 @@ python -m compileall -q backend
 python -m unittest discover -s backend/tests -v
 ```
 
-GitHub Actions ejecuta los tests contra PostgreSQL + PostGIS antes del deploy.
+La integración requiere `TEST_DATABASE_URL` hacia una base desechable terminada en `_test`. Nunca uses la base compartida: la suite vacía tablas. GitHub Actions usa una base aislada y valida también Docker antes del deploy.
 
 Contrato completo: `contracts/api_v1.md`.

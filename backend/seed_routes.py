@@ -13,9 +13,7 @@ from pathlib import Path
 import psycopg
 
 
-ROOT = Path(__file__).resolve().parents[1]
-ROUTE_PATH = ROOT / "app" / "assets" / "routes" / "l2_ordinary_route.geojson"
-STATIONS_PATH = ROOT / "app" / "assets" / "routes" / "l2_ordinary_stations.geojson"
+from .config import ROUTE_PATH, STATIONS_PATH
 
 
 def _load(path: Path):

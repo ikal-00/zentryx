@@ -1,10 +1,11 @@
 """Interaction and data regressions for the passenger frontend.
 
-Run from app: python -m unittest discover -s tests -v
+Run from root: python -m unittest discover -s app/tests -v
 No browser/network required; Map.move_to is the only client RPC stubbed out.
 """
 
 import math
+import os
 import unittest
 from dataclasses import fields
 from types import SimpleNamespace
@@ -12,9 +13,9 @@ from unittest.mock import AsyncMock, patch
 
 import flet as ft
 import flet_map as ftm
-import main
-from components.passenger import AlertBanner, PassengerCard
-from services import VehicleService, available_services, load_route
+from app.views import passenger as main
+from app.components.passenger import AlertBanner, PassengerCard
+from app.services import VehicleService, available_services, load_route
 
 
 def descendants(control):
@@ -48,6 +49,9 @@ class PageStub:
 
 class FrontendTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
+        env = patch.dict(os.environ, {"ZENTRYX_API_BASE_URL": ""})
+        env.start()
+        self.addCleanup(env.stop)
         self.page = PageStub()
         main.main(self.page)
         self.controls = list(descendants(self.page.root))
@@ -55,13 +59,10 @@ class FrontendTests(unittest.IsolatedAsyncioTestCase):
         self.center = next(
             c
             for c in self.controls
-            if isinstance(c, ft.IconButton)
-            and c.tooltip == "Centrar y seguir la unidad"
+            if isinstance(c, ft.IconButton) and c.tooltip == "Centrar y seguir la unidad"
         )
         self.badge = next(
-            c
-            for c in self.controls
-            if isinstance(c, ft.Text) and c.value == "Siguiendo unidad"
+            c for c in self.controls if isinstance(c, ft.Text) and c.value == "Siguiendo unidad"
         )
         self.map.on_init(None)
 
@@ -97,9 +98,7 @@ class FrontendTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertTrue(
                 any(
-                    isinstance(c, ft.Column)
-                    and c.visible
-                    and selected in list(descendants(c))
+                    isinstance(c, ft.Column) and c.visible and selected in list(descendants(c))
                     for c in self.controls
                 )
             )
@@ -291,9 +290,7 @@ class FrontendTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.map.layers[2].markers), 44)
         self.assertGreaterEqual(len(coordinates), 80)
         self.assertTrue(
-            self.map.layers[0].url_template.startswith(
-                "https://tile.openstreetmap.org/"
-            )
+            self.map.layers[0].url_template.startswith("https://tile.openstreetmap.org/")
         )
 
         for width, height in [
