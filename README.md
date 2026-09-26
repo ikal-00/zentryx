@@ -6,7 +6,8 @@ Plataforma de movilidad para Mexibús Línea 2: mapa, ubicación de unidades, pr
 
 | Directorio | Responsabilidad |
 | --- | --- |
-| `app/` | Python/Flet: pantalla, componentes, estado y adaptadores REST |
+| `mobile/` | Flutter: cliente nativo multiplataforma iOS/Android |
+| `app/` | Python/Flet: cliente estable de respaldo durante la transición móvil |
 | `backend/` | Flask/Gunicorn: HTTP, servicios, SQL y simulador optativo |
 | `database/` | PostgreSQL/PostGIS: esquema y migraciones |
 | `contracts/` | Endpoints y mensajes de API v1 |
@@ -16,9 +17,23 @@ Plataforma de movilidad para Mexibús Línea 2: mapa, ubicación de unidades, pr
 | `prototypes/` | Firmware experimental, juego y estación 3D |
 | `.github/workflows/` | CI hospedado y CD en la mini PC |
 
-La app consulta `/v1`. El simulador envía telemetría a esa misma API. PostgreSQL/PostGIS conserva datos; el backend calcula navegación y ETA. Docker Compose ejecuta el servidor y Tailscale permite acceso privado.
+Los clientes consultan `/v1`. El simulador envía telemetría a esa misma API. PostgreSQL/PostGIS conserva datos; el backend calcula navegación y ETA. Docker Compose ejecuta el servidor y Tailscale permite acceso privado.
 
-## Empezar
+## Cliente móvil Flutter
+
+El cliente nativo vive en `mobile/` y comparte exactamente el mismo backend y contrato API que Flet. Incluye mapa, Línea 2, estaciones, unidad en vivo, ETA, heading, ocupación, alertas, seguimiento de cámara, exploración libre y manejo de desconexión.
+
+Con Flutter instalado:
+
+```bash
+cd mobile
+./bootstrap.sh
+flutter run --dart-define=ZENTRYX_API_BASE_URL=http://100.72.215.34:5000
+```
+
+La API compartida solo es accesible con Tailscale conectado. El workflow `Zentryx Mobile CI` analiza, prueba y genera builds Android debug e iOS simulator.
+
+## Cliente Flet
 
 Python 3.12+ para desarrollo; CI e imagen de servidor usan 3.13.
 
@@ -47,6 +62,7 @@ Fetch/Pull → rama → desarrollar → test → commit/push → PR → merge �
 
 Un push a `main` despliega después de aprobar app, backend y contenedores. Se conserva `/home/miner3/zentryx`, el runner `zentryx-server` y el volumen existente.
 
+- [Cliente móvil](mobile/README.md)
 - [Desarrollo y PyCharm](docs/development/workflow.md)
 - [Arquitectura](docs/architecture/overview.md)
 - [Docker y despliegue](docs/operations/deployment.md)
