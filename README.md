@@ -12,6 +12,7 @@ Plataforma de movilidad para Mexibús Línea 2: mapa, ubicación de unidades, pr
 | `contracts/` | Endpoints y mensajes de API v1 |
 | `docs/` | Arquitectura, desarrollo, decisiones y operación |
 | `scripts/` | Smoke test, validación de contenedores y despliegue |
+| `firmware/` | Proyecto electrónico KiCad Silice y componentes |
 | `prototypes/` | Firmware, juego y estación 3D experimentales |
 | `.github/workflows/` | CI hospedado y CD en la mini PC |
 

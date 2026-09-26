@@ -54,3 +54,7 @@ Compose sigue en raíz, proyecto `zentryx`, servicios `db/api/simulator`, perfil
 5. La pantalla aún concentra bindings Flet; dividir más cuando exista otra pantalla real.
 6. Lock completo de dependencias transitivas y retiro de wrappers cuando se descarten consumidores externos.
 7. GeoJSON exprés y prototipos conservados; no representan servicios activos o implementaciones completas.
+
+## Hardware incorporado durante la revisión
+
+`firmware/Silice/` llegó a `main` en paralelo al refactor (ACT3.6). Es un proyecto KiCad independiente del runtime Python/Docker. Se conserva completo en su ubicación original para no interferir con el trabajo activo. `prototypes/firmware/` enlaza al trabajo actual. Los archivos STEP, símbolos y footprints no se prueban con Python; queda pendiente la validación eléctrica/DRC con KiCad. También llegaron caché y lock de editor versionados: se recomienda retirarlos coordinadamente y mantener solo fuentes.
