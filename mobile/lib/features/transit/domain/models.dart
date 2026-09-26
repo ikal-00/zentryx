@@ -95,13 +95,18 @@ class VehicleInfo {
     required this.status,
     required this.position,
     required this.speedMps,
+    required this.accuracyM,
     required this.headingDeg,
     required this.occupancyLevel,
     required this.direction,
+    required this.directionSource,
     required this.directionLabel,
     required this.nextStationName,
+    required this.progressM,
+    required this.routeLengthM,
     required this.distanceRemainingM,
     required this.etaSeconds,
+    required this.etaSpeedMps,
     required this.lastUpdate,
   });
 
@@ -110,20 +115,33 @@ class VehicleInfo {
   final String status;
   final GeoPoint? position;
   final double speedMps;
+  final double? accuracyM;
   final double headingDeg;
   final String occupancyLevel;
   final String direction;
+  final String? directionSource;
   final String directionLabel;
   final String? nextStationName;
+  final double? progressM;
+  final double? routeLengthM;
   final double? distanceRemainingM;
   final double? etaSeconds;
+  final double? etaSpeedMps;
   final DateTime? lastUpdate;
 
   bool get isOnline => status == 'online';
 
+  double? get routeProgress {
+    final progress = progressM;
+    final length = routeLengthM;
+    if (progress == null || length == null || length <= 0) return null;
+    return (progress / length).clamp(0.0, 1.0).toDouble();
+  }
+
   factory VehicleInfo.fromJson(Map<String, dynamic> json) {
     final positionJson = (json['position'] as Map?)?.cast<String, dynamic>();
-    final navigation = (json['navigation'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final navigation =
+        (json['navigation'] as Map?)?.cast<String, dynamic>() ?? const {};
     final nextStation =
         (navigation['next_station'] as Map?)?.cast<String, dynamic>();
     final lastUpdateRaw = json['last_update']?.toString();
@@ -134,18 +152,31 @@ class VehicleInfo {
       status: json['status']?.toString() ?? 'unknown',
       position: positionJson == null ? null : GeoPoint.fromJson(positionJson),
       speedMps: _asDouble(json['speed_mps']),
+      accuracyM:
+          json['accuracy_m'] == null ? null : _asDouble(json['accuracy_m']),
       headingDeg: _asDouble(json['heading_deg']),
       occupancyLevel: json['occupancy_level']?.toString() ?? 'unknown',
       direction: navigation['direction']?.toString() ?? 'unknown',
+      directionSource: navigation['direction_source']?.toString(),
       directionLabel: navigation['direction_label']?.toString() ?? '',
       nextStationName: nextStation?['name']?.toString(),
+      progressM: navigation['progress_m'] == null
+          ? null
+          : _asDouble(navigation['progress_m']),
+      routeLengthM: navigation['route_length_m'] == null
+          ? null
+          : _asDouble(navigation['route_length_m']),
       distanceRemainingM: navigation['distance_remaining_m'] == null
           ? null
           : _asDouble(navigation['distance_remaining_m']),
       etaSeconds: navigation['eta_seconds'] == null
           ? null
           : _asDouble(navigation['eta_seconds']),
-      lastUpdate: lastUpdateRaw == null ? null : DateTime.tryParse(lastUpdateRaw),
+      etaSpeedMps: navigation['eta_speed_mps'] == null
+          ? null
+          : _asDouble(navigation['eta_speed_mps']),
+      lastUpdate:
+          lastUpdateRaw == null ? null : DateTime.tryParse(lastUpdateRaw),
     );
   }
 }

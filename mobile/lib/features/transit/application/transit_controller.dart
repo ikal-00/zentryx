@@ -77,45 +77,34 @@ class TransitController extends StateNotifier<TransitState> {
   Timer? _poller;
   bool _refreshInFlight = false;
   bool _closed = false;
+  bool _paused = false;
 
   Future<void> start() async {
-    try {
-      final routeFuture = _repository.loadRoute();
-      final stationsFuture = _repository.loadStations();
-      final route = await routeFuture;
-      final stations = await stationsFuture;
-      if (_closed) return;
-      state = state.copyWith(
-        route: route,
-        stations: stations,
-        loading: false,
-        clearError: true,
-      );
-    } catch (error) {
-      if (_closed) return;
-      state = state.copyWith(
-        loading: false,
-        stale: true,
-        error: _message(error),
-      );
-    }
-
-    await refresh();
+    await _ensureStaticData();
     if (_closed) return;
-    _poller = Timer.periodic(AppConfig.pollInterval, (_) => unawaited(refresh()));
+    await refresh();
+    if (_closed || _paused) return;
+    _schedulePoller();
   }
 
   Future<void> refresh() async {
-    if (_refreshInFlight || _closed) return;
+    if (_refreshInFlight || _closed || _paused) return;
     _refreshInFlight = true;
     state = state.copyWith(refreshing: true);
 
     try {
-      final vehicleFuture = _repository.loadVehicle();
-      final alertsFuture = _repository.loadAlerts();
-      final vehicle = await vehicleFuture;
-      final alerts = await alertsFuture;
+      if (state.route == null || state.stations.isEmpty) {
+        await _ensureStaticData();
+      }
+
+      final results = await Future.wait<Object>([
+        _repository.loadVehicle(),
+        _repository.loadAlerts(),
+      ]);
       if (_closed) return;
+
+      final vehicle = results[0] as VehicleInfo;
+      final alerts = results[1] as List<AlertInfo>;
       state = state.copyWith(
         vehicle: vehicle,
         alerts: alerts,
@@ -136,6 +125,69 @@ class TransitController extends StateNotifier<TransitState> {
     } finally {
       _refreshInFlight = false;
     }
+  }
+
+  void pause() {
+    if (_closed || _paused) return;
+    _paused = true;
+    _poller?.cancel();
+    _poller = null;
+  }
+
+  Future<void> resume() async {
+    if (_closed) return;
+    final wasPaused = _paused;
+    _paused = false;
+    if (wasPaused) {
+      await refresh();
+    }
+    if (!_closed) _schedulePoller();
+  }
+
+  Future<void> reloadStaticData() async {
+    _repository.clearStaticCache();
+    await _ensureStaticData(force: true);
+    await refresh();
+  }
+
+  Future<void> _ensureStaticData({bool force = false}) async {
+    RouteInfo? route = state.route;
+    List<StationInfo> stations = state.stations;
+    Object? lastError;
+
+    if (route == null || force) {
+      try {
+        route = await _repository.loadRoute(force: force);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (stations.isEmpty || force) {
+      try {
+        stations = await _repository.loadStations(force: force);
+      } catch (error) {
+        lastError ??= error;
+      }
+    }
+
+    if (_closed) return;
+    state = state.copyWith(
+      route: route,
+      stations: stations,
+      loading: false,
+      error: lastError == null ? null : _message(lastError),
+      clearError: lastError == null,
+    );
+  }
+
+  void _schedulePoller() {
+    if (_closed || _paused) return;
+    _poller?.cancel();
+    _poller = Timer.periodic(
+      AppConfig.pollInterval,
+      (_) => unawaited(refresh()),
+    );
   }
 
   String _message(Object error) {

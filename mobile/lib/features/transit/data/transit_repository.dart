@@ -7,9 +7,22 @@ class TransitRepository {
 
   final ApiClient _api;
 
-  Future<RouteInfo> loadRoute() => _api.fetchRoute(AppConfig.routeId);
+  RouteInfo? _routeCache;
+  List<StationInfo>? _stationsCache;
 
-  Future<List<StationInfo>> loadStations() => _api.fetchStations(AppConfig.routeId);
+  Future<RouteInfo> loadRoute({bool force = false}) async {
+    if (!force && _routeCache != null) return _routeCache!;
+    final route = await _api.fetchRoute(AppConfig.routeId);
+    _routeCache = route;
+    return route;
+  }
+
+  Future<List<StationInfo>> loadStations({bool force = false}) async {
+    if (!force && _stationsCache != null) return _stationsCache!;
+    final stations = await _api.fetchStations(AppConfig.routeId);
+    _stationsCache = stations;
+    return stations;
+  }
 
   Future<VehicleInfo> loadVehicle() => _api.fetchVehicle(AppConfig.vehicleId);
 
@@ -17,4 +30,11 @@ class TransitRepository {
         routeId: AppConfig.routeId,
         vehicleId: AppConfig.vehicleId,
       );
+
+  Future<void> checkHealth() => _api.checkHealth();
+
+  void clearStaticCache() {
+    _routeCache = null;
+    _stationsCache = null;
+  }
 }
