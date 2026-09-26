@@ -1,6 +1,0 @@
-BASE DE DATOS(PostgreSQL):
- APP:
- -PostgreSQL
- GPS:
- -Postgis :3
- 

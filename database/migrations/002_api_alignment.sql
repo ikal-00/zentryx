@@ -1,5 +1,5 @@
 -- Zentryx API v1 alignment migration
--- Run after BD/database_v1.sql on existing databases.
+-- Run after database/schema.sql on existing databases.
 
 BEGIN;
 
