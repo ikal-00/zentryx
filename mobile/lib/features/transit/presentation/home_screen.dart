@@ -48,6 +48,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return CupertinoPageScaffold(
       child: Stack(
+        fit: StackFit.expand,
         children: [
           Positioned.fill(
             child: FlutterMap(
