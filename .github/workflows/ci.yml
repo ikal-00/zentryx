@@ -1,0 +1,105 @@
+name: Zentryx CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: App checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install app dependencies
+        run: python -m pip install -r app/requirements.txt
+      - name: Compile app
+        run: python -m compileall -q app
+      - name: Run app tests
+        working-directory: app
+        run: python -m unittest discover -s tests -v
+
+  backend:
+    name: Backend + PostGIS checks
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/zentryx
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: zentryx
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d zentryx"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install backend dependencies
+        run: python -m pip install -r backend/requirements.txt
+      - name: Compile backend
+        run: python -m compileall -q backend
+      - name: Validate Docker Compose
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+          API_BIND_IP: 127.0.0.1
+        run: docker compose config --quiet
+      - name: Run backend unit and PostGIS integration tests
+        run: python -m unittest discover -s backend/tests -v
+
+  deploy:
+    name: Deploy to mini PC
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - app
+      - backend
+    runs-on: [self-hosted, linux, x64, zentryx]
+    timeout-minutes: 15
+    concurrency:
+      group: zentryx-production
+      cancel-in-progress: true
+    steps:
+      - name: Update server checkout
+        working-directory: /home/miner3/zentryx
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Rebuild and restart services
+        working-directory: /home/miner3/zentryx
+        run: |
+          set -euo pipefail
+          docker compose --profile demo up -d --build --remove-orphans
+
+      - name: Show service status
+        working-directory: /home/miner3/zentryx
+        run: docker compose --profile demo ps
+
+      - name: Verify shared API
+        working-directory: /home/miner3/zentryx
+        run: |
+          set -euo pipefail
+          for attempt in {1..12}; do
+            if python3 scripts/check_shared_api.py http://100.72.215.34:5000; then
+              exit 0
+            fi
+            echo "API todavía no está lista (intento ${attempt}/12); reintentando..."
+            sleep 5
+          done
+          echo "La API no pasó el smoke test después del despliegue."
+          docker compose --profile demo logs --tail=150 api
+          exit 1

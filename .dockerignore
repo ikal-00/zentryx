@@ -11,3 +11,19 @@ venv/
 **/venv/
 .idea/
 .DS_Store
+
+# Not needed by the backend image
+docs/
+prototypes/
+contracts/
+database/
+scripts/
+app/components/
+app/services/
+app/tests/
+app/main.py
+app/README.md
+app/requirements.txt
+app/run_shared_api.sh
+backend/tests/
+backend/README.md

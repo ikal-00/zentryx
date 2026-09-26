@@ -20,7 +20,7 @@ class PostgresIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with psycopg.connect(POSTGRES_URL, autocommit=True) as conn:
-            schema = (ROOT / "BD" / "database_v1.sql").read_text(encoding="utf-8")
+            schema = (ROOT / "database" / "schema.sql").read_text(encoding="utf-8")
             with conn.cursor() as cur:
                 cur.execute(schema, prepare=False)
 

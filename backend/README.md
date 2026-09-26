@@ -1,15 +1,17 @@
 # Zentryx backend · API v1
 
-## Preparar entorno
+`backend/app.py` es el entrypoint canónico de Flask. `API_Global.py` se conserva como compatibilidad temporal.
 
-Desde la raíz del repositorio:
+## Setup
+
+Desde la raíz:
 
 ```bash
-cd backend
-pipenv install
+make setup
+source .venv/bin/activate
 ```
 
-La API necesita `POSTGRES_URL` apuntando a PostgreSQL + PostGIS.
+Variables principales:
 
 ```text
 POSTGRES_URL=postgresql://user:password@localhost:5432/zentryx
@@ -19,126 +21,47 @@ HOST=0.0.0.0
 PORT=5000
 ```
 
+## Organización
+
+```text
+backend/
+├── app.py             App factory y entrypoint
+├── routes/            Blueprints HTTP
+├── api_utils.py       Validación y autenticación
+├── navigation.py      Proyección, dirección y ETA
+├── seed_routes.py     Seed de Línea 2
+├── dev_simulator.py   Telemetría demo compartida
+└── tests/             Unit + integración PostGIS
+```
+
 ## Base de datos
 
-Base nueva:
-
 ```bash
-psql "$POSTGRES_URL" -f BD/database_v1.sql
-```
-
-Base existente:
-
-```bash
-psql "$POSTGRES_URL" -f BD/migrations/002_api_alignment.sql
-psql "$POSTGRES_URL" -f BD/migrations/003_runtime_hardening.sql
-```
-
-Carga de la Línea 2 ordinaria desde los GeoJSON reales del frontend:
-
-```bash
+psql "$POSTGRES_URL" -f database/schema.sql
 POSTGRES_URL="$POSTGRES_URL" python -m backend.seed_routes
 ```
 
-`BD/Gps_sql/Gps_sql.sql` está deprecado.
+Migraciones para una base existente están en `database/migrations/`.
 
-## Servidor compartido con Docker
-
-La instalación compartida usa `docker-compose.yml` en la raíz y levanta PostgreSQL/PostGIS y la API en contenedores separados. La base queda en el volumen persistente `zentryx_db` y PostgreSQL no publica el puerto 5432 al host.
-
-Crea un `.env` local a partir de `.env.example`. `POSTGRES_PASSWORD` debe ser un valor aleatorio y `API_BIND_IP` debe ser la IP Tailscale del servidor. `.env` está ignorado por Git.
+## Ejecutar sin Docker
 
 ```bash
-cp .env.example .env
-# Editar .env antes de arrancar.
-docker compose up -d --build
+python -m backend.app
 ```
 
-La API carga/actualiza el seed de Línea 2 al arrancar y se sirve con Gunicorn. Para comprobar el servidor:
-
-```bash
-docker compose ps
-curl http://<TAILSCALE_IP>:5000/v1/health
-curl http://<TAILSCALE_IP>:5000/v1/ready
-curl http://<TAILSCALE_IP>:5000/v1/routes
-```
-
-Para desplegar cambios nuevos del repositorio:
-
-```bash
-git pull --ff-only origin main
-docker compose up -d --build
-```
-
-No uses `docker compose down -v` salvo que quieras borrar deliberadamente la base de datos de desarrollo.
-
-## Perfil demo compartido
-
-Para probar de punta a punta rutas, estaciones, telemetría, unidad, dirección, ETA y alertas sin conectar todavía el GPS físico, existe un simulador opt-in:
+## Servidor compartido
 
 ```bash
 docker compose --profile demo up -d --build
 ```
 
-El simulador crea únicamente recursos de desarrollo dedicados:
-
-```text
-device_id  = gps-demo-01
-vehicle_id = unit-demo-01
-route_id   = route-l2
-```
-
-Además mantiene una alerta de prueba activa y envía telemetría fresca por `POST /v1/telemetry` usando la autenticación real de dispositivo. La app puede consumir esa unidad igual que consumiría una unidad física.
-
-Para apagar solo el simulador sin apagar API ni base de datos:
-
-```bash
-docker compose --profile demo stop simulator
-```
-
-La verificación completa desde una máquina con acceso Tailscale es:
+El perfil `demo` crea `unit-demo-01` y publica telemetría por la API real. No requiere GPS físico.
 
 ```bash
 python3 scripts/check_shared_api.py http://<TAILSCALE_IP>:5000
 ```
 
-Cuando se conecte el GPS físico, no es necesario usar el perfil `demo`.
-
-## Tokens
-
-Dispositivos GPS:
-
-```text
-Authorization: Device <token>
-```
-
-Conductores que reportan incidentes:
-
-```text
-Authorization: Driver <token>
-```
-
-Ambos tokens se almacenan como SHA-256 (`sha256:<64 hex>`), nunca en texto plano.
-
-## Ejecutar sin Docker
-
-Desde la raíz:
-
-```bash
-python -m backend.API_Global
-```
-
-Liveness:
-
-```bash
-curl http://127.0.0.1:5000/v1/health
-```
-
-Readiness real de PostgreSQL/PostGIS:
-
-```bash
-curl http://127.0.0.1:5000/v1/ready
-```
+No uses `docker compose down -v` salvo que quieras borrar deliberadamente la base de desarrollo.
 
 ## Endpoints MVP
 
@@ -156,15 +79,18 @@ GET  /v1/alerts
 POST /v1/incidents
 ```
 
-`GET /v1/vehicles/{id}` deriva estado online/offline, usa varias muestras recientes para estabilizar el sentido y calcula próxima estación/ETA en backend. El ETA usa velocidad suavizada reciente y la velocidad por defecto de la ruta como fallback cuando la unidad está detenida.
+`GET /v1/vehicles/{id}` deriva online/offline, estabiliza el sentido con historial y calcula próxima estación/ETA en backend.
 
-## Telemetría
+`POST /v1/telemetry` es idempotente por `(device_id, seq)` y valida coordenadas, timestamp, velocidad, precisión, heading y satélites.
 
-`POST /v1/telemetry` es idempotente por `(device_id, seq)`. Valida schema, coordenadas, timestamp, velocidad, precisión, heading y satélites. También rechaza timestamps con más de 5 minutos de futuro o más de 24 horas de antigüedad.
+## Autenticación
 
-## Incidentes
+```text
+Authorization: Device <token>
+Authorization: Driver <token>
+```
 
-Un incidente requiere un conductor activo en `drivers` y una asignación activa en `driver_vehicle_assignments`. Ya no se comparte el token físico del GPS con la interfaz del conductor.
+Los tokens persistidos se guardan como SHA-256.
 
 ## Tests
 
@@ -173,6 +99,6 @@ python -m compileall -q backend
 python -m unittest discover -s backend/tests -v
 ```
 
-GitHub Actions levanta un contenedor real PostgreSQL + PostGIS y prueba el ciclo completo: esquema → seed L2 → telemetría → unidad/navegación → alertas → incidente de conductor.
+GitHub Actions ejecuta los tests contra PostgreSQL + PostGIS antes del deploy.
 
-El contrato completo está en `contracts/api_v1.md`.
+Contrato completo: `contracts/api_v1.md`.

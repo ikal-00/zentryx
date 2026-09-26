@@ -1,0 +1,8 @@
+-- DEPRECATED
+--
+-- Esquema histórico conservado únicamente como referencia.
+-- No debe ejecutarse.
+--
+-- Fuentes de verdad actuales:
+--   1) database/schema.sql
+--   2) database/migrations/*.sql
