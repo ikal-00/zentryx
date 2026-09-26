@@ -2,7 +2,7 @@
 
 Cliente móvil nativo multiplataforma de Zentryx construido con Flutter.
 
-Esta carpeta se desarrolla en paralelo con `app/` (Flet) hasta alcanzar paridad funcional. El backend, contratos HTTP, PostgreSQL/PostGIS, Docker y Tailscale no cambian.
+`mobile/` implementa el MVP de pasajero en paralelo con `app/` (Flet). El backend, contratos HTTP, PostgreSQL/PostGIS, Docker y Tailscale no cambian.
 
 ## Objetivo
 
@@ -57,7 +57,7 @@ lib/
       application/ estado y polling
       data/        acceso a la API y caché
       domain/      modelos del contrato v1
-      presentation/ mapa, HUD y animaciones
+      presentation/ mapa, HUD, navegación de ruta y animaciones
 ```
 
 El contrato funcional continúa siendo `../contracts/api_v1.md`.
@@ -83,4 +83,6 @@ Los builds exitosos publican artefactos temporales `zentryx-android-debug` y `ze
 
 ## Estado de migración
 
-La app Flet continúa siendo el cliente estable. `mobile/` es la nueva implementación y no reemplazará `app/` hasta alcanzar paridad funcional y pasar pruebas reales en iOS y Android.
+La paridad funcional del MVP de pasajero está implementada en código y validada por analyzer/tests/builds. `app/` permanece como respaldo hasta completar una prueba manual corta en un iPhone y un Android reales antes de retirarlo.
+
+Consulta [PARITY.md](PARITY.md) para la lista de funciones y el gate de retiro de Flet.
