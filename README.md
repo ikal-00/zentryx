@@ -12,8 +12,8 @@ Plataforma de movilidad para Mexibús Línea 2: mapa, ubicación de unidades, pr
 | `contracts/` | Endpoints y mensajes de API v1 |
 | `docs/` | Arquitectura, desarrollo, decisiones y operación |
 | `scripts/` | Smoke test, validación de contenedores y despliegue |
-| `firmware/` | Proyecto electrónico KiCad Silice y componentes |
-| `prototypes/` | Firmware, juego y estación 3D experimentales |
+| `hardware/` | Diseño electrónico/KiCad del dispositivo Silice |
+| `prototypes/` | Firmware experimental, juego y estación 3D |
 | `.github/workflows/` | CI hospedado y CD en la mini PC |
 
 La app consulta `/v1`. El simulador envía telemetría a esa misma API. PostgreSQL/PostGIS conserva datos; el backend calcula navegación y ETA. Docker Compose ejecuta el servidor y Tailscale permite acceso privado.

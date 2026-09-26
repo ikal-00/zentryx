@@ -45,6 +45,14 @@ Imports mediante el paquete `app`; solo el entrypoint directo añade la raíz al
 
 Compose sigue en raíz, proyecto `zentryx`, servicios `db/api/simulator`, perfil `demo` y volumen lógico `zentryx_db`. Esquema y migraciones no cambian. No se agregan microservicios, ORM o infraestructura adicional.
 
+## Hardware y firmware
+
+`hardware/silice/` contiene el proyecto KiCad activo del dispositivo Silice: esquemático, PCB, símbolos, footprints y modelos 3D. Es independiente del runtime Python/Docker y conserva rutas internas relativas mediante `${KIPRJMOD}`.
+
+`prototypes/firmware/` queda reservado para el futuro código que se ejecute en el dispositivo físico (microcontrolador/GPS). Hasta entonces, `backend/dev_simulator.py` sustituye el productor de telemetría real.
+
+Los archivos temporales y cachés de KiCad no forman parte de las fuentes del proyecto y están excluidos por `.gitignore`.
+
 ## Deuda pendiente, por prioridad
 
 1. Historial automático de migraciones, respaldos y prueba de restauración: requiere coordinación operativa.
@@ -55,6 +63,4 @@ Compose sigue en raíz, proyecto `zentryx`, servicios `db/api/simulator`, perfil
 6. Lock completo de dependencias transitivas y retiro de wrappers cuando se descarten consumidores externos.
 7. GeoJSON exprés y prototipos conservados; no representan servicios activos o implementaciones completas.
 
-## Hardware incorporado durante la revisión
-
-`firmware/Silice/` llegó a `main` en paralelo al refactor (ACT3.6). Es un proyecto KiCad independiente del runtime Python/Docker. Se conserva completo en su ubicación original para no interferir con el trabajo activo. `prototypes/firmware/` enlaza al trabajo actual. Los archivos STEP, símbolos y footprints no se prueban con Python; queda pendiente la validación eléctrica/DRC con KiCad. También llegaron caché y lock de editor versionados: se recomienda retirarlos coordinadamente y mantener solo fuentes.
+La validación eléctrica/DRC del proyecto KiCad sigue siendo una tarea de hardware y no forma parte de la suite Python/CI actual.

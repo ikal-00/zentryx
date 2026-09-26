@@ -1,5 +1,7 @@
-# Prototipo de hardware
+# Prototipo de firmware
 
-El proyecto KiCad activo está en [firmware/Silice](../../firmware/Silice/). Se conserva allí porque se está editando en paralelo. Este directorio queda como referencia de la organización anterior.
+Este directorio queda reservado para el futuro código que se ejecute en el dispositivo físico de telemetría/GPS.
 
-El desarrollo de API usa `backend/dev_simulator.py` hasta integrar el GPS físico.
+El diseño electrónico/KiCad activo está en [`hardware/silice`](../../hardware/silice/).
+
+Mientras no exista firmware físico integrado, el desarrollo de API usa `backend/dev_simulator.py` para producir telemetría de prueba.
