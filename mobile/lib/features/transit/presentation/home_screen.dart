@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
 import 'package:zentryx_mobile/features/transit/application/transit_controller.dart';
 import 'package:zentryx_mobile/features/transit/domain/models.dart';
+import 'package:zentryx_mobile/features/transit/presentation/widgets/route_sheet.dart';
 import 'package:zentryx_mobile/features/transit/presentation/widgets/transit_hud.dart';
 import 'package:zentryx_mobile/features/transit/presentation/widgets/vehicle_marker.dart';
 
@@ -103,33 +104,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                           width: 38,
                           height: 38,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => _showStation(station),
-                            child: Center(
-                              child: Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: CupertinoDynamicColor.resolve(
-                                    ZentryxColors.surface,
-                                    context,
-                                  ),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
+                          child: Semantics(
+                            button: true,
+                            label: station.name,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _showStation(station),
+                              child: Center(
+                                child: Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: BoxDecoration(
                                     color: CupertinoDynamicColor.resolve(
-                                      ZentryxColors.ink,
+                                      ZentryxColors.surface,
                                       context,
                                     ),
-                                    width: 3,
-                                  ),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x22000000),
-                                      blurRadius: 8,
-                                      offset: Offset(0, 2),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: CupertinoDynamicColor.resolve(
+                                        ZentryxColors.ink,
+                                        context,
+                                      ),
+                                      width: 3,
                                     ),
-                                  ],
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x22000000),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -158,7 +163,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: TransitHeaderCard(state: state)),
+                  Expanded(
+                    child: Semantics(
+                      button: true,
+                      label: 'Ver ruta y estaciones',
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _showRoute,
+                        child: TransitHeaderCard(state: state),
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   MapFollowButton(
                     following: _followVehicle,
@@ -213,6 +228,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  void _showRoute() {
+    final state = ref.read(transitControllerProvider);
+    showTransitRouteSheet(
+      context: context,
+      route: state.route,
+      stations: state.stations,
+      onStationSelected: _focusStation,
+    );
+  }
+
+  void _focusStation(StationInfo station) {
+    if (!mounted) return;
+    setState(() => _followVehicle = false);
+    _mapController.move(
+      LatLng(station.position.lat, station.position.lon),
+      17,
+    );
+  }
+
   void _showStation(StationInfo station) {
     final vehicle = ref.read(transitControllerProvider).vehicle;
     final isNext = vehicle?.nextStationName == station.name;
@@ -230,11 +264,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.of(sheetContext).pop();
-              setState(() => _followVehicle = false);
-              _mapController.move(
-                LatLng(station.position.lat, station.position.lon),
-                17,
-              );
+              _focusStation(station);
             },
             child: const Text('Centrar en estación'),
           ),
@@ -248,7 +278,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   String _eta(double? seconds) {
-    if (seconds == null || !seconds.isFinite || seconds < 0) return 'ETA no disponible';
+    if (seconds == null || !seconds.isFinite || seconds < 0) {
+      return 'ETA no disponible';
+    }
     if (seconds < 60) return 'llega en menos de 1 min';
     return 'llega en ${(seconds / 60).ceil()} min';
   }
