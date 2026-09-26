@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from services import ApiAlertService, ApiVehicleService, load_route, load_route_from_api
+from app.services import ApiAlertService, ApiVehicleService, load_route, load_route_from_api
 
 
 class ApiAdapterTests(unittest.TestCase):
@@ -96,7 +96,7 @@ class ApiAdapterTests(unittest.TestCase):
             ],
         }
         with patch(
-            "services.api_route_service._get_json",
+            "app.services.api_route_service._get_json",
             side_effect=[routes_payload, detail, stations],
         ):
             route = load_route_from_api(
@@ -136,7 +136,7 @@ class ApiAdapterTests(unittest.TestCase):
 
                 return json.dumps(payload).encode("utf-8")
 
-        with patch("services.api_alert_service.urlopen", return_value=Response()):
+        with patch("app.services.api_alert_service.urlopen", return_value=Response()):
             alert = service._fetch_alerts()
         self.assertEqual(alert["alert_id"], "critical-1")
 

@@ -1,26 +1,10 @@
 import json
 
 from flask import Blueprint, current_app, request
+from ..repositories import transit as repository
 
 
 rutas = Blueprint("rutas", __name__, url_prefix="/v1")
-
-
-ROUTE_COLUMNS = """
-    route_id,
-    name,
-    active,
-    line_id,
-    line_label,
-    network_name,
-    service_id,
-    service_name,
-    origin_name,
-    destination_name,
-    direction_forward_label,
-    direction_reverse_label,
-    default_speed_mps
-"""
 
 
 def _route_payload(row):
@@ -45,36 +29,14 @@ def _route_payload(row):
 def list_routes():
     pool = current_app.extensions["POOL"]
     active_only = request.args.get("active", "true").lower() not in {"0", "false", "no"}
-    where = "WHERE active = TRUE" if active_only else ""
-    with pool.connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                f"""
-                SELECT {ROUTE_COLUMNS}
-                FROM routes
-                {where}
-                ORDER BY line_label NULLS LAST, service_name NULLS LAST, name
-                LIMIT 100;
-                """
-            )
-            rows = cur.fetchall()
+    rows = repository.list_routes(pool, active_only)
     return {"routes": [_route_payload(row) for row in rows]}, 200
 
 
 @rutas.get("/routes/<string:route_id>")
 def route_detail(route_id):
     pool = current_app.extensions["POOL"]
-    with pool.connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                f"""
-                SELECT {ROUTE_COLUMNS}, ST_AsGeoJSON(path)
-                FROM routes
-                WHERE route_id = %s AND active = TRUE;
-                """,
-                (route_id,),
-            )
-            row = cur.fetchone()
+    row = repository.route_detail(pool, route_id)
 
     if row is None:
         return {"error": "route_not_found"}, 404
@@ -82,10 +44,7 @@ def route_detail(route_id):
     payload = _route_payload(row)
     geometry = json.loads(row[13]) if row[13] else None
     payload["path"] = (
-        [
-            {"lat": float(lat), "lon": float(lon)}
-            for lon, lat in geometry.get("coordinates", [])
-        ]
+        [{"lat": float(lat), "lon": float(lon)} for lon, lat in geometry.get("coordinates", [])]
         if geometry and geometry.get("type") == "LineString"
         else []
     )
@@ -95,32 +54,9 @@ def route_detail(route_id):
 @rutas.get("/routes/<string:route_id>/stations")
 def route_stations(route_id):
     pool = current_app.extensions["POOL"]
-    with pool.connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT 1 FROM routes WHERE route_id = %s AND active = TRUE;",
-                (route_id,),
-            )
-            if cur.fetchone() is None:
-                return {"error": "route_not_found"}, 404
-
-            cur.execute(
-                """
-                SELECT
-                    s.station_id,
-                    s.name,
-                    ST_Y(s.position) AS lat,
-                    ST_X(s.position) AS lon,
-                    s.active,
-                    rs.stop_order
-                FROM route_stations AS rs
-                JOIN stations AS s ON s.station_id = rs.station_id
-                WHERE rs.route_id = %s AND s.active = TRUE
-                ORDER BY rs.stop_order;
-                """,
-                (route_id,),
-            )
-            rows = cur.fetchall()
+    rows = repository.route_stations(pool, route_id)
+    if rows is None:
+        return {"error": "route_not_found"}, 404
 
     return {
         "route_id": route_id,
@@ -140,18 +76,7 @@ def route_stations(route_id):
 @rutas.get("/stations")
 def list_stations():
     pool = current_app.extensions["POOL"]
-    with pool.connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT station_id, name, ST_Y(position), ST_X(position), active
-                FROM stations
-                WHERE active = TRUE
-                ORDER BY name
-                LIMIT 1000;
-                """
-            )
-            rows = cur.fetchall()
+    rows = repository.list_stations(pool)
 
     return {
         "stations": [

@@ -2,13 +2,13 @@
 
 import os
 
-from dotenv import load_dotenv
 from flask import Flask
 from psycopg import OperationalError
-from psycopg_pool import ConnectionPool
 from werkzeug.exceptions import HTTPException
 
 from .routes import (
+    alerts_blueprint,
+    incidents_blueprint,
     health_blueprint,
     telemetry_blueprint,
     transit_blueprint,
@@ -16,7 +16,8 @@ from .routes import (
 )
 
 
-load_dotenv()
+from .config import create_pool
+from .services.errors import AuthenticationError, AssignmentNotFound
 
 
 def create_app(pool=None) -> Flask:
@@ -28,15 +29,7 @@ def create_app(pool=None) -> Flask:
     app = Flask(__name__)
 
     if pool is None:
-        postgres_url = os.getenv("POSTGRES_URL")
-        if not postgres_url:
-            raise RuntimeError("POSTGRES_URL is required to start the Zentryx API")
-        pool = ConnectionPool(
-            conninfo=postgres_url,
-            min_size=int(os.getenv("DB_POOL_MIN", "1")),
-            max_size=int(os.getenv("DB_POOL_MAX", "30")),
-            open=True,
-        )
+        pool = create_pool()
 
     app.extensions["POOL"] = pool
 
@@ -44,6 +37,16 @@ def create_app(pool=None) -> Flask:
     app.register_blueprint(transit_blueprint)
     app.register_blueprint(vehicles_blueprint)
     app.register_blueprint(telemetry_blueprint)
+    app.register_blueprint(alerts_blueprint)
+    app.register_blueprint(incidents_blueprint)
+
+    @app.errorhandler(AuthenticationError)
+    def unauthorized(error):
+        return {"error": str(error)}, 401
+
+    @app.errorhandler(AssignmentNotFound)
+    def assignment_missing(error):
+        return {"error": str(error)}, 404
 
     @app.errorhandler(OperationalError)
     def database_unavailable(error):

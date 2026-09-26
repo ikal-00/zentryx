@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -22,17 +23,31 @@ def check(condition: bool, label: str, detail: str = "") -> None:
 
 
 def main() -> int:
-    base_url = (sys.argv[1] if len(sys.argv) > 1 else "http://100.72.215.34:5000").rstrip("/")
-    vehicle_id = sys.argv[2] if len(sys.argv) > 2 else "unit-demo-01"
+    base_url = (
+        sys.argv[1]
+        if len(sys.argv) > 1
+        else os.getenv("ZENTRYX_API_BASE_URL", "http://100.72.215.34:5000")
+    ).rstrip("/")
+    vehicle_id = (
+        sys.argv[2] if len(sys.argv) > 2 else os.getenv("ZENTRYX_VEHICLE_ID", "unit-demo-01")
+    )
 
     try:
+        status, health = get_json(f"{base_url}/v1/health")
+        check(status == 200 and health.get("status") == "ok", "API liveness")
         status, ready = get_json(f"{base_url}/v1/ready")
-        check(status == 200 and ready.get("status") == "ready", "API + PostgreSQL/PostGIS", str(ready))
+        check(
+            status == 200 and ready.get("status") == "ready", "API + PostgreSQL/PostGIS", str(ready)
+        )
 
         status, routes_payload = get_json(f"{base_url}/v1/routes")
         routes = routes_payload.get("routes", [])
         route = next((item for item in routes if item.get("service_id") == "l2-ordinary"), None)
-        check(status == 200 and route is not None, "Ruta L2 ordinaria", route.get("route_id") if route else "no encontrada")
+        check(
+            status == 200 and route is not None,
+            "Ruta L2 ordinaria",
+            route.get("route_id") if route else "no encontrada",
+        )
         route_id = route["route_id"]
 
         status, detail = get_json(f"{base_url}/v1/routes/{route_id}")
@@ -48,16 +63,38 @@ def main() -> int:
         next_station = navigation.get("next_station") or {}
         check(status == 200 and vehicle.get("status") == "online", "Unidad demo online", vehicle_id)
         check(vehicle.get("position") is not None, "Posición GPS", str(vehicle.get("position")))
-        check(navigation.get("direction") in {"forward", "reverse"}, "Dirección", str(navigation.get("direction")))
-        check(navigation.get("eta_seconds") is not None, "ETA backend", f"{navigation.get('eta_seconds')} s")
-        check(bool(next_station.get("name")), "Próxima estación", str(next_station.get("name")))
+        check(
+            navigation.get("direction") in {"forward", "reverse"},
+            "Dirección",
+            str(navigation.get("direction")),
+        )
+        check(
+            navigation.get("eta_seconds") is not None,
+            "ETA backend",
+            f"{navigation.get('eta_seconds')} s",
+        )
+        at_terminal = (
+            navigation.get("eta_seconds") == 0 and navigation.get("distance_remaining_m") == 0
+        )
+        check(
+            bool(next_station.get("name")) or at_terminal,
+            "Próxima estación o terminal",
+            str(next_station.get("name")),
+        )
 
         query = urlencode({"route_id": route_id, "vehicle_id": vehicle_id})
         status, alerts_payload = get_json(f"{base_url}/v1/alerts?{query}")
         alerts = alerts_payload.get("alerts", [])
         check(status == 200 and len(alerts) >= 1, "Alertas activas", f"{len(alerts)}")
 
-    except (HTTPError, URLError, TimeoutError, RuntimeError, KeyError, json.JSONDecodeError) as error:
+    except (
+        HTTPError,
+        URLError,
+        TimeoutError,
+        RuntimeError,
+        KeyError,
+        json.JSONDecodeError,
+    ) as error:
         print(f"\nShared API check failed: {error}", file=sys.stderr)
         print("Si falla unidad/ETA/alertas, inicia el perfil demo en el servidor:", file=sys.stderr)
         print("  docker compose --profile demo up -d --build", file=sys.stderr)

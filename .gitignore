@@ -33,3 +33,11 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+
+# Private keys and database dumps
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+*.dump
+*.backup

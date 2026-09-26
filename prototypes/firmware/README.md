@@ -1,3 +1,5 @@
-# Firmware prototype
+# Prototipo de hardware
 
-Área reservada para firmware y pruebas de hardware de telemetría. Por el momento el desarrollo compartido usa `backend/dev_simulator.py`, por lo que no existe dependencia de un GPS físico.
+El proyecto KiCad activo está en [firmware/Silice](../../firmware/Silice/). Se conserva allí porque se está editando en paralelo. Este directorio queda como referencia de la organización anterior.
+
+El desarrollo de API usa `backend/dev_simulator.py` hasta integrar el GPS físico.

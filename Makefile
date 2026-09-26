@@ -2,7 +2,7 @@ PYTHON ?= python3
 VENV_PYTHON := .venv/bin/python
 API_URL ?= http://100.72.215.34:5000
 
-.PHONY: help setup compile test-app test-backend verify app server-up server-stop server-status server-logs smoke
+.PHONY: help setup compile lint test-app test-backend verify app server-up server-stop server-status server-logs smoke
 
 help:
 	@echo "Zentryx"
@@ -21,15 +21,18 @@ setup:
 	$(VENV_PYTHON) -m pip install -r requirements-dev.txt
 
 compile:
-	$(VENV_PYTHON) -m compileall -q app backend
+	$(VENV_PYTHON) -m compileall -q app backend scripts
 
 test-app:
-	cd app && ../$(VENV_PYTHON) -m unittest discover -s tests -v
+	$(VENV_PYTHON) -m unittest discover -s app/tests -v
 
 test-backend:
 	$(VENV_PYTHON) -m unittest discover -s backend/tests -v
 
-verify: compile test-app test-backend
+lint:
+	$(VENV_PYTHON) -m ruff check app backend scripts
+
+verify: lint compile test-app test-backend
 
 app:
 	bash app/run_shared_api.sh

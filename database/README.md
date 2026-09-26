@@ -11,7 +11,11 @@ database/
 └── legacy/
 ```
 
-`schema.sql` representa una instalación nueva. Las migraciones actualizan bases ya creadas.
+`schema.sql` representa una instalación nueva. Las migraciones actualizan bases ya creadas. Esta reorganización conserva los archivos SQL sin cambios y no necesita migrar datos.
+
+Compose inicializa el esquema solo cuando el volumen está vacío. Reconstruir la API no reaplica migraciones. Conserva el proyecto `zentryx` y el volumen lógico `zentryx_db` (nombre Docker predeterminado `zentryx_zentryx_db`). Nunca elimines ese volumen.
+
+Antes de aplicar migraciones a una base existente, verifica su estado y prepara un respaldo. Los comandos de abajo son procedimientos operativos; no forman parte del despliegue automático.
 
 ## Base nueva
 
@@ -43,3 +47,7 @@ El seed usa `app/assets/routes/` y hace upsert de ruta, estaciones y orden.
 ## Tokens
 
 `devices.token_hash` y `drivers.token_hash` usan `sha256:<64 caracteres hexadecimales>`.
+
+## Pruebas
+
+Solo `TEST_DATABASE_URL`, con nombre terminado en `_test`, habilita integración. La suite vacía tablas de esa base desechable. `POSTGRES_URL` queda reservado al runtime y nunca activa tests destructivos.

@@ -1,7 +1,7 @@
-"""Small reusable views; data and map actions are supplied by main.py."""
+"""Small reusable views; data and map actions are supplied by views/passenger.py."""
 
 import flet as ft
-from theme import ACCENT, INK, LINE, MUTED, PAPER, SOFT, WHITE, shadow
+from ..theme import ACCENT, INK, LINE, MUTED, PAPER, SOFT, WHITE, shadow
 
 
 def label(value, **kwargs):
@@ -33,13 +33,9 @@ def top_bar(on_route, line_label="L2", network_name="Mexibús"):
                             bgcolor=INK,
                             border_radius=12,
                             alignment=ft.Alignment.CENTER,
-                            content=ft.Icon(
-                                ft.Icons.NEAR_ME_ROUNDED, color=ACCENT, size=21
-                            ),
+                            content=ft.Icon(ft.Icons.NEAR_ME_ROUNDED, color=ACCENT, size=21),
                         ),
-                        ft.Text(
-                            "zentryx", size=26, weight=ft.FontWeight.W_700, color=INK
-                        ),
+                        ft.Text("zentryx", size=26, weight=ft.FontWeight.W_700, color=INK),
                     ],
                 ),
                 ft.TextButton(
@@ -49,9 +45,7 @@ def top_bar(on_route, line_label="L2", network_name="Mexibús"):
                         controls=[
                             pill(line_label, ACCENT),
                             ft.Text(network_name, color=INK, size=13),
-                            ft.Icon(
-                                ft.Icons.KEYBOARD_ARROW_DOWN_ROUNDED, color=INK, size=18
-                            ),
+                            ft.Icon(ft.Icons.KEYBOARD_ARROW_DOWN_ROUNDED, color=INK, size=18),
                         ],
                     ),
                     tooltip="Ver estaciones del servicio",
@@ -65,18 +59,14 @@ def top_bar(on_route, line_label="L2", network_name="Mexibús"):
 
 class MapControls:
     def __init__(self, on_center):
-        self.status = ft.Text(
-            "Siguiendo unidad", size=12, color=INK, weight=ft.FontWeight.W_600
-        )
+        self.status = ft.Text("Siguiendo unidad", size=12, color=INK, weight=ft.FontWeight.W_600)
         self.status_icon = ft.Icon(ft.Icons.GPS_FIXED_ROUNDED, size=14, color=INK)
         self.badge = ft.Container(
             padding=ft.Padding.symmetric(horizontal=12, vertical=8),
             bgcolor=WHITE,
             border_radius=20,
             shadow=shadow(),
-            content=ft.Row(
-                tight=True, spacing=7, controls=[self.status_icon, self.status]
-            ),
+            content=ft.Row(tight=True, spacing=7, controls=[self.status_icon, self.status]),
         )
         self.center = ft.IconButton(
             icon=ft.Icons.GPS_FIXED_ROUNDED,
@@ -102,14 +92,10 @@ class MapControls:
         self.status_icon.icon = (
             ft.Icons.GPS_FIXED_ROUNDED if following else ft.Icons.PAN_TOOL_ALT_ROUNDED
         )
-        self.center.icon = (
-            ft.Icons.GPS_FIXED_ROUNDED if following else ft.Icons.MY_LOCATION_ROUNDED
-        )
+        self.center.icon = ft.Icons.GPS_FIXED_ROUNDED if following else ft.Icons.MY_LOCATION_ROUNDED
         self.center.bgcolor = INK if following else WHITE
         self.center.icon_color = ACCENT if following else INK
-        self.center.tooltip = (
-            "Centrar en la unidad" if following else "Volver a seguir la unidad"
-        )
+        self.center.tooltip = "Centrar en la unidad" if following else "Volver a seguir la unidad"
         self.center_accessible.label = self.center.tooltip
 
 
@@ -153,9 +139,7 @@ class PassengerCard:
                             border_radius=14,
                             bgcolor=SOFT,
                             alignment=ft.Alignment.CENTER,
-                            content=ft.Icon(
-                                ft.Icons.DIRECTIONS_BUS_ROUNDED, color=INK, size=23
-                            ),
+                            content=ft.Icon(ft.Icons.DIRECTIONS_BUS_ROUNDED, color=INK, size=23),
                         ),
                         ft.Column(
                             expand=True,
@@ -259,9 +243,7 @@ class PassengerCard:
             if vehicle_id.startswith(("unit-", "demo-unit-"))
             else vehicle_id
         )
-        self.destination.value = (
-            "Hacia " + snapshot.direction_label.split("→")[-1].strip()
-        )
+        self.destination.value = "Hacia " + snapshot.direction_label.split("→")[-1].strip()
         self.status.value = (
             "Datos de demostración"
             if demo
@@ -304,9 +286,7 @@ class AlertBanner:
         self.alert = None
 
     def set_alert(self, alert=None):
-        self.alert = (
-            alert if alert and alert.get("active") and alert.get("message") else None
-        )
+        self.alert = alert if alert and alert.get("active") and alert.get("message") else None
         self.control.visible = self.alert is not None
         if not self.alert:
             return

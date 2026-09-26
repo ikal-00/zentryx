@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from urllib.request import Request, urlopen
 
-from .route_service import RouteDefinition, StationDefinition
+from ..models import RouteDefinition, StationDefinition
 
 
 def _get_json(url: str, timeout: float = 4.0):
@@ -35,8 +35,7 @@ def load_route_from_api(
     stations_payload = _get_json(f"{base_url}/v1/routes/{route_id}/stations", timeout)
 
     coordinates = tuple(
-        (float(point["lat"]), float(point["lon"]))
-        for point in detail.get("path") or []
+        (float(point["lat"]), float(point["lon"])) for point in detail.get("path") or []
     )
     if len(coordinates) < 2:
         raise ValueError("API route has no usable path geometry")
@@ -71,12 +70,10 @@ def load_route_from_api(
         origin_name=str(detail.get("origin_name") or stations[0].name),
         destination_name=str(detail.get("destination_name") or stations[-1].name),
         forward_label=str(
-            detail.get("direction_forward_label")
-            or f"{stations[0].name} → {stations[-1].name}"
+            detail.get("direction_forward_label") or f"{stations[0].name} → {stations[-1].name}"
         ),
         reverse_label=str(
-            detail.get("direction_reverse_label")
-            or f"{stations[-1].name} → {stations[0].name}"
+            detail.get("direction_reverse_label") or f"{stations[-1].name} → {stations[0].name}"
         ),
         coordinates=coordinates,
         stations=tuple(stations),

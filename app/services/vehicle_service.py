@@ -1,24 +1,8 @@
 import asyncio
 import bisect
 import math
-from dataclasses import dataclass
+from ..models import VehicleSnapshot
 from typing import AsyncIterator
-
-
-@dataclass(frozen=True)
-class VehicleSnapshot:
-    vehicle_id: str
-    route_id: str
-    status: str
-    lat: float
-    lon: float
-    speed_mps: float
-    occupancy_level: str
-    direction: int
-    direction_label: str
-    progress_m: float
-    route_length_m: float
-    heading_deg: float
 
 
 class VehicleService:
@@ -75,14 +59,16 @@ class VehicleService:
 
         value = (
             math.sin(delta_phi / 2) ** 2
-            + math.cos(phi1)
-            * math.cos(phi2)
-            * math.sin(delta_lambda / 2) ** 2
+            + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
         )
 
-        return 2 * radius_m * math.atan2(
-            math.sqrt(value),
-            math.sqrt(1 - value),
+        return (
+            2
+            * radius_m
+            * math.atan2(
+                math.sqrt(value),
+                math.sqrt(1 - value),
+            )
         )
 
     @staticmethod
@@ -96,10 +82,7 @@ class VehicleService:
 
         delta_lon = lon2 - lon1
         x = math.sin(delta_lon) * math.cos(lat2)
-        y = (
-            math.cos(lat1) * math.sin(lat2)
-            - math.sin(lat1) * math.cos(lat2) * math.cos(delta_lon)
-        )
+        y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(delta_lon)
 
         return (math.degrees(math.atan2(x, y)) + 360.0) % 360.0
 
@@ -124,10 +107,13 @@ class VehicleService:
         if progress_m >= self.route_length_m:
             return self.route_coordinates[-1]
 
-        index = bisect.bisect_right(
-            self.cumulative_distances,
-            progress_m,
-        ) - 1
+        index = (
+            bisect.bisect_right(
+                self.cumulative_distances,
+                progress_m,
+            )
+            - 1
+        )
         index = max(0, min(index, len(self.route_coordinates) - 2))
 
         start_distance = self.cumulative_distances[index]
@@ -204,22 +190,16 @@ class VehicleService:
             if distance_squared < best_distance_squared:
                 best_distance_squared = distance_squared
                 segment_distance = (
-                    self.cumulative_distances[index + 1]
-                    - self.cumulative_distances[index]
+                    self.cumulative_distances[index + 1] - self.cumulative_distances[index]
                 )
-                best_progress_m = (
-                    self.cumulative_distances[index]
-                    + fraction * segment_distance
-                )
+                best_progress_m = self.cumulative_distances[index] + fraction * segment_distance
 
         return best_progress_m
 
     def _snapshot(self, progress_m: float, direction: int, speed_mps: float):
         lat, lon = self.coordinate_at_progress(progress_m)
         direction_label = (
-            self.forward_direction_label
-            if direction == 1
-            else self.reverse_direction_label
+            self.forward_direction_label if direction == 1 else self.reverse_direction_label
         )
 
         return VehicleSnapshot(
@@ -254,16 +234,12 @@ class VehicleService:
             distance_step = self.speed_mps * self.update_interval_seconds
             progress_m += distance_step * direction
 
-            reached_terminal = (
-                direction == 1 and progress_m >= self.route_length_m
-            ) or (
+            reached_terminal = (direction == 1 and progress_m >= self.route_length_m) or (
                 direction == -1 and progress_m <= 0.0
             )
 
             if reached_terminal:
-                progress_m = (
-                    self.route_length_m if direction == 1 else 0.0
-                )
+                progress_m = self.route_length_m if direction == 1 else 0.0
 
                 yield self._snapshot(
                     progress_m=progress_m,

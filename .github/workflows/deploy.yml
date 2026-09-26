@@ -1,0 +1,29 @@
+name: Zentryx CD
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to mini PC
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, zentryx]
+    timeout-minutes: 15
+    concurrency:
+      group: zentryx-production
+      cancel-in-progress: false
+    steps:
+      - name: Load deploy script from the tested commit
+        working-directory: /home/miner3/zentryx
+        env:
+          TESTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          script="$(mktemp)"
+          trap 'rm -f "$script"' EXIT
+          git show "${TESTED_SHA}:scripts/deploy.sh" > "$script"
+          bash "$script" "$TESTED_SHA"

@@ -4,20 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from .vehicle_service import VehicleService, VehicleSnapshot
-
-
-@dataclass(frozen=True)
-class ApiVehicleSnapshot(VehicleSnapshot):
-    next_station_name: str | None = None
-    eta_seconds: float | None = None
-    distance_remaining_m: float | None = None
-    navigation_from_api: bool = True
-    position_known: bool = True
+from .vehicle_service import VehicleService
+from ..models import ApiVehicleSnapshot
 
 
 class ApiVehicleService(VehicleService):
@@ -63,13 +55,7 @@ class ApiVehicleService(VehicleService):
 
         navigation = payload.get("navigation") or {}
         direction_name = navigation.get("direction")
-        direction = (
-            1
-            if direction_name == "forward"
-            else -1
-            if direction_name == "reverse"
-            else 0
-        )
+        direction = 1 if direction_name == "forward" else -1 if direction_name == "reverse" else 0
         direction_label = navigation.get("direction_label") or (
             self.forward_direction_label
             if direction == 1

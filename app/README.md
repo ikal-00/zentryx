@@ -43,14 +43,15 @@ Si la definición de ruta no está disponible durante el arranque, el mapa puede
 
 ## Organización
 
-```text
-app/
-├── main.py
-├── components/
-├── services/
-├── assets/routes/
-└── tests/
-```
+| Ubicación | Responsabilidad |
+| --- | --- |
+| `main.py` | Entry point Flet |
+| `views/` y `components/` | Pantalla y controles |
+| `models.py`, `state.py`, `config.py` | Datos, seguimiento y entorno |
+| `presentation.py`, `theme.py` | Formato y estilos |
+| `services/` | Fuentes y adaptadores REST |
+| `assets/routes/` | GeoJSON local |
+| `tests/` | Interacciones y contratos de adapters |
 
 `assets/routes/` funciona como fallback y fuente de seed para Línea 2. El servicio ordinario mantiene 43 estaciones de La Quebrada a Las Américas.
 
@@ -61,9 +62,8 @@ El marcador se actualiza con cada snapshot. La cámara limita actualizaciones po
 ## Tests
 
 ```bash
-cd app
-python -m unittest discover -s tests -v
-python -m compileall -q main.py components services theme.py
+python -m unittest discover -s app/tests -v
+python -m compileall -q app
 ```
 
 O desde la raíz:

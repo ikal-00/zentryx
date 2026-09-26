@@ -1,6 +1,6 @@
 # ADR 0001: estructura del monorepo
 
-- Estado: Aceptada
+- Estado: Aceptada; decisión CI/CD sustituida por [ADR 0002](0002-module-boundaries.md)
 - Fecha: 2026-09-25
 
 ## Contexto

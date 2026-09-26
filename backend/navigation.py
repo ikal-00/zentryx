@@ -132,7 +132,9 @@ class RouteNavigator:
             distance_squared = nearest_x**2 + nearest_y**2
             if distance_squared < best_distance_squared:
                 best_distance_squared = distance_squared
-                segment_length = self.cumulative_distances[index + 1] - self.cumulative_distances[index]
+                segment_length = (
+                    self.cumulative_distances[index + 1] - self.cumulative_distances[index]
+                )
                 best_progress_m = self.cumulative_distances[index] + fraction * segment_length
 
         return best_progress_m
