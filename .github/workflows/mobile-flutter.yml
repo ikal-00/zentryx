@@ -15,9 +15,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: zentryx-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  flutter:
-    name: Flutter analyze, tests and Android build
+  android:
+    name: Android · analyze, tests and debug build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -26,10 +30,10 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Generate standard mobile platform scaffold
+      - name: Generate standard Android scaffold
         working-directory: mobile
         run: |
-          flutter create . --platforms=android,ios --org com.zentryx --project-name zentryx_mobile
+          flutter create . --platforms=android --org com.zentryx --project-name zentryx_mobile
           rm -f test/widget_test.dart
       - name: Install dependencies
         working-directory: mobile
@@ -43,3 +47,39 @@ jobs:
       - name: Build Android debug APK
         working-directory: mobile
         run: flutter build apk --debug
+      - name: Upload Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: zentryx-android-debug
+          path: mobile/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  ios:
+    name: iOS · simulator build
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate standard iOS scaffold
+        working-directory: mobile
+        run: |
+          flutter create . --platforms=ios --org com.zentryx --project-name zentryx_mobile
+          rm -f test/widget_test.dart
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+      - name: Build iOS simulator app
+        working-directory: mobile
+        run: flutter build ios --simulator --debug
+      - name: Upload iOS simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: zentryx-ios-simulator
+          path: mobile/build/ios/iphonesimulator/Runner.app
+          if-no-files-found: error
+          retention-days: 7
