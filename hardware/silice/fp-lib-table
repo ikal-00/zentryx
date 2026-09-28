@@ -1,4 +1,6 @@
 (fp_lib_table
   (version 7)
   (lib (name "GCT")(type "KiCad")(uri "${KIPRJMOD}/Components/GCT.pretty")(options "")(descr ""))
+  (lib (name "ESP32")(type "KiCad")(uri "${KIPRJMOD}/Components/ESP32.pretty")(options "")(descr ""))
+  (lib (name "footprints")(type "KiCad")(uri "${KIPRJMOD}/Components/USB-C/ul_TS3USB221ARSER/footprints.pretty")(options "")(descr ""))
 )
