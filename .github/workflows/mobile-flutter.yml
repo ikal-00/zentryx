@@ -3,7 +3,7 @@ name: Zentryx Mobile CI
 on:
   push:
     branches:
-      - feature/flutter-mobile
+      - main
     paths:
       - "mobile/**"
       - ".github/workflows/mobile-flutter.yml"
