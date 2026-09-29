@@ -3,19 +3,24 @@ import 'dart:math' as math;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
+import '../motion/vehicle_motion.dart';
 
 class AnimatedVehicleLayer extends StatefulWidget {
   const AnimatedVehicleLayer({
     required this.target,
     required this.headingDeg,
     required this.online,
+    required this.onVisualPosition,
+    this.timestamp,
+    this.accuracyM,
     super.key,
   });
-
   final LatLng target;
   final double headingDeg;
   final bool online;
+  final DateTime? timestamp;
+  final double? accuracyM;
+  final ValueChanged<LatLng> onVisualPosition;
 
   @override
   State<AnimatedVehicleLayer> createState() => _AnimatedVehicleLayerState();
@@ -24,132 +29,121 @@ class AnimatedVehicleLayer extends StatefulWidget {
 class _AnimatedVehicleLayerState extends State<AnimatedVehicleLayer>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late LatLng _fromPosition;
-  late LatLng _toPosition;
-  late double _fromHeading;
-  late double _toHeading;
+  late final VehicleMotion _motion;
+  final Stopwatch _clock = Stopwatch();
 
   @override
   void initState() {
     super.initState();
-    _fromPosition = widget.target;
-    _toPosition = widget.target;
-    _fromHeading = widget.headingDeg;
-    _toHeading = widget.headingDeg;
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1900),
-      value: 1,
-    );
+    _motion = VehicleMotion(widget.target, widget.headingDeg, timestamp: widget.timestamp);
+    _clock.start();
+    _controller = AnimationController(vsync: this, value: 1)
+      ..addListener(_publishPosition);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _publishPosition();
+    });
   }
+
+  void _publishPosition() =>
+      widget.onVisualPosition(_motion.sample(_controller.value).position);
 
   @override
   void didUpdateWidget(covariant AnimatedVehicleLayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final positionChanged = oldWidget.target != widget.target;
-    final headingChanged = oldWidget.headingDeg != widget.headingDeg;
-    if (!positionChanged && !headingChanged) return;
-
-    final eased = Curves.easeOutCubic.transform(_controller.value);
-    _fromPosition = _lerpPosition(_fromPosition, _toPosition, eased);
-    _fromHeading = _lerpDouble(_fromHeading, _toHeading, eased);
-    _toPosition = widget.target;
-    _toHeading = _shortestHeadingTarget(_fromHeading, widget.headingDeg);
-    _controller.forward(from: 0);
+    if (oldWidget.target == widget.target &&
+        oldWidget.headingDeg == widget.headingDeg &&
+        oldWidget.timestamp == widget.timestamp) return;
+    if (_motion.retarget(
+      target: widget.target,
+      heading: widget.headingDeg,
+      timestamp: widget.timestamp,
+      accuracyM: widget.accuracyM,
+      receivedAt: _clock.elapsed,
+      fraction: _controller.value,
+    )) {
+      _controller.duration = _motion.duration;
+      _controller.forward(from: 0);
+    }
   }
 
   @override
   void dispose() {
+    _clock.stop();
     _controller.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final t = Curves.easeOutCubic.transform(_controller.value);
-        final point = _lerpPosition(_fromPosition, _toPosition, t);
-        final heading = _lerpDouble(_fromHeading, _toHeading, t);
-        return MarkerLayer(
-          markers: [
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _controller,
+        child: RepaintBoundary(
+          child: CustomPaint(
+            size: const Size(58, 58),
+            painter: ZentryxBusPainter(online: widget.online),
+          ),
+        ),
+        builder: (context, child) {
+          final pose = _motion.sample(_controller.value);
+          return MarkerLayer(markers: [
             Marker(
-              point: point,
+              point: pose.position,
               width: 58,
               height: 58,
-              child: RepaintBoundary(
+              child: Semantics(
+                label: widget.online ? 'Autobús en vivo' : 'Última ubicación del autobús',
                 child: Transform.rotate(
-                  angle: heading * math.pi / 180,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: CupertinoDynamicColor.resolve(
-                        ZentryxColors.ink,
-                        context,
-                      ),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFFFFFFFF),
-                        width: 3,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: widget.online
-                              ? const Color(0x38000000)
-                              : const Color(0x22000000),
-                          blurRadius: widget.online ? 16 : 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        const Icon(
-                          CupertinoIcons.location_north_fill,
-                          color: ZentryxColors.accent,
-                          size: 26,
-                        ),
-                        if (!widget.online)
-                          Positioned(
-                            right: 5,
-                            bottom: 5,
-                            child: Container(
-                              width: 9,
-                              height: 9,
-                              decoration: const BoxDecoration(
-                                color: ZentryxColors.warning,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+                  angle: pose.heading * math.pi / 180,
+                  child: child,
                 ),
               ),
             ),
-          ],
-        );
-      },
-    );
+          ]);
+        },
+      );
+}
+
+/// Original north-facing vector bus; crisp at every device pixel ratio.
+class ZentryxBusPainter extends CustomPainter {
+  const ZentryxBusPainter({required this.online});
+  final bool online;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.width / 58, size.height / 58);
+    final body = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(14, 5, 30, 48), const Radius.circular(9));
+    canvas.drawShadow(Path()..addRRect(body), const Color(0x990C241E), 5, true);
+    final paint = Paint();
+    // White separation, dark body, lime roof and unmistakable windshield.
+    canvas.drawRRect(body.inflate(2.5), paint..color = const Color(0xFFFFFFFF));
+    canvas.drawRRect(body, paint..color = const Color(0xFF153C34));
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(const Rect.fromLTWH(18, 8, 22, 40), const Radius.circular(6)),
+      paint..color = online ? const Color(0xFFD6F67A) : const Color(0xFFB1BCB5));
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(const Rect.fromLTWH(19, 12, 20, 9), const Radius.circular(3)),
+      paint..color = const Color(0xFF234B46));
+    canvas.drawLine(const Offset(21, 14), const Offset(31, 14),
+      paint..color = const Color(0xFF92C4BF)..strokeWidth = 2);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(const Rect.fromLTWH(23, 26, 12, 13), const Radius.circular(3)),
+      paint..color = const Color(0xFFEAFBB5));
+    for (final x in [11.0, 43.0]) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(x, 15, 4, 7), const Radius.circular(2)),
+        paint..color = const Color(0xFF153C34));
+    }
+    for (final x in [19.0, 36.0]) {
+      canvas.drawCircle(Offset(x, 9), 1.5, paint..color = const Color(0xFFFFFFFF));
+      canvas.drawCircle(Offset(x, 49), 1.5, paint..color = const Color(0xFFE85D5D));
+    }
+    if (!online) {
+      canvas.drawCircle(const Offset(44, 44), 5, paint..color = const Color(0xFFD58B22));
+    }
+    canvas.restore();
   }
 
-  LatLng _lerpPosition(LatLng a, LatLng b, double t) {
-    return LatLng(
-      a.latitude + (b.latitude - a.latitude) * t,
-      a.longitude + (b.longitude - a.longitude) * t,
-    );
-  }
-
-  double _lerpDouble(double a, double b, double t) => a + (b - a) * t;
-
-  double _shortestHeadingTarget(double from, double target) {
-    final normalizedTarget = target % 360;
-    final normalizedFrom = from % 360;
-    var delta = normalizedTarget - normalizedFrom;
-    if (delta > 180) delta -= 360;
-    if (delta < -180) delta += 360;
-    return from + delta;
-  }
+  @override
+  bool shouldRepaint(covariant ZentryxBusPainter oldDelegate) => online != oldDelegate.online;
 }

@@ -108,6 +108,7 @@ class VehicleInfo {
     required this.etaSeconds,
     required this.etaSpeedMps,
     required this.lastUpdate,
+    this.nextStationId,
   });
 
   final String vehicleId;
@@ -122,6 +123,11 @@ class VehicleInfo {
   final String? directionSource;
   final String directionLabel;
   final String? nextStationName;
+  final String? nextStationId;
+
+  bool isNextStation(StationInfo station) => nextStationId != null
+      ? nextStationId == station.stationId
+      : nextStationName == station.name;
   final double? progressM;
   final double? routeLengthM;
   final double? distanceRemainingM;
@@ -154,12 +160,13 @@ class VehicleInfo {
       speedMps: _asDouble(json['speed_mps']),
       accuracyM:
           json['accuracy_m'] == null ? null : _asDouble(json['accuracy_m']),
-      headingDeg: _asDouble(json['heading_deg']),
+      headingDeg: _asDouble(json['heading_deg'], double.nan),
       occupancyLevel: json['occupancy_level']?.toString() ?? 'unknown',
       direction: navigation['direction']?.toString() ?? 'unknown',
       directionSource: navigation['direction_source']?.toString(),
       directionLabel: navigation['direction_label']?.toString() ?? '',
       nextStationName: nextStation?['name']?.toString(),
+      nextStationId: nextStation?['station_id']?.toString(),
       progressM: navigation['progress_m'] == null
           ? null
           : _asDouble(navigation['progress_m']),
