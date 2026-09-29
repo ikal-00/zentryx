@@ -230,17 +230,19 @@ class _AlertsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final alert = state.alerts.first;
+    final color = CupertinoDynamicColor.resolve(
+        ZentryxColors.alert(alert.severity), context);
     return CupertinoButton(
       padding: const EdgeInsets.symmetric(vertical: 6),
       onPressed: () => _showDetails(context, state, alertsOnly: true),
       child: Row(children: [
         Icon(CupertinoIcons.exclamationmark_triangle_fill, size: 15,
-            color: CupertinoDynamicColor.resolve(ZentryxColors.alert(alert.severity), context)),
+            color: color),
         const SizedBox(width: 7),
         Expanded(child: Text('${state.alerts.length} alerta(s) · ${alert.message}',
             maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12))),
-        const Icon(CupertinoIcons.chevron_right, size: 13),
+            style: TextStyle(fontSize: 12, color: color))),
+        Icon(CupertinoIcons.chevron_right, size: 13, color: color),
       ]),
     );
   }
