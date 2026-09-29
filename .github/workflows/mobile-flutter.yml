@@ -43,7 +43,15 @@ jobs:
         run: flutter analyze
       - name: Test
         working-directory: mobile
-        run: flutter test
+        run: flutter test --dart-define=ZENTRYX_CAPTURE_REVIEW=true
+      - name: Upload Flutter visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zentryx-visual-review
+          path: mobile/build/visual-review/*.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Build Android debug APK
         working-directory: mobile
         run: flutter build apk --debug
