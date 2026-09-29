@@ -27,7 +27,15 @@ final vehicle = VehicleInfo.fromJson({
   'navigation': {'next_station': {'station_id': 'bandera', 'name': station.name},
     'direction_label': 'La Quebrada → Las Américas', 'eta_seconds': 120},
 });
-final fixtureState = TransitState(loading: false, vehicle: vehicle, stations: const [station, other],
+final fixtureState = TransitState(route: RouteInfo.fromJson({
+  'route_id': 'route-l2', 'service_id': 'l2-ordinary',
+  'network_name': 'Mexibús', 'line_label': 'L2',
+  'path': [
+    {'lat': 19.617, 'lon': -99.16299},
+    {'lat': 19.624, 'lon': -99.16299},
+    {'lat': 19.626, 'lon': -99.161},
+  ],
+}), loading: false, vehicle: vehicle, stations: const [station, other],
     alerts: const [AlertInfo(alertId: 'a', message: 'Tráfico lento en el recorrido', severity: 'warning', type: 'traffic')]);
 
 class _Controller extends TransitController {

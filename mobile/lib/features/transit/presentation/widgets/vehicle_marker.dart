@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' show LatLng;
 import '../motion/vehicle_motion.dart';
 
 class AnimatedVehicleLayer extends StatefulWidget {
@@ -52,7 +52,9 @@ class _AnimatedVehicleLayerState extends State<AnimatedVehicleLayer>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.target == widget.target &&
         oldWidget.headingDeg == widget.headingDeg &&
-        oldWidget.timestamp == widget.timestamp) return;
+        oldWidget.timestamp == widget.timestamp) {
+      return;
+    }
     if (_motion.retarget(
       target: widget.target,
       heading: widget.headingDeg,
