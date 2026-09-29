@@ -11,8 +11,8 @@ class ZentryxMark extends StatelessWidget {
     return CustomPaint(
       size: Size.square(size),
       painter: _ZentryxMarkPainter(
-        ink: CupertinoDynamicColor.resolve(ZentryxColors.ink, context),
-        accent: CupertinoDynamicColor.resolve(ZentryxColors.accent, context),
+        ink: ZentryxColors.brandDark,
+        accent: ZentryxColors.brand,
       ),
     );
   }
@@ -40,7 +40,7 @@ class _ZentryxMarkPainter extends CustomPainter {
       ..lineTo(size.width * 0.22, size.height * 0.82)
       ..close();
 
-    canvas.drawShadow(front, const Color(0x66000000), size.width * 0.09, true);
+    canvas.drawShadow(front, ZentryxColors.markShadow, size.width * 0.09, true);
 
     canvas.drawPath(
       side,
@@ -71,7 +71,7 @@ class _ZentryxMarkPainter extends CustomPainter {
       ..lineTo(size.width * 0.82, size.height * 0.72)
       ..lineTo(size.width * 0.72, size.height * 0.69)
       ..close();
-    canvas.drawPath(highlight, Paint()..color = const Color(0x33FFFFFF));
+    canvas.drawPath(highlight, Paint()..color = ZentryxColors.markHighlight);
   }
 
   @override

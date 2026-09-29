@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
+import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import '../motion/vehicle_motion.dart';
@@ -115,33 +116,33 @@ class ZentryxBusPainter extends CustomPainter {
     canvas.scale(size.width / 58, size.height / 58);
     final body = RRect.fromRectAndRadius(
       const Rect.fromLTWH(14, 5, 30, 48), const Radius.circular(9));
-    canvas.drawShadow(Path()..addRRect(body), const Color(0x990C241E), 5, true);
+    canvas.drawShadow(Path()..addRRect(body), ZentryxColors.busShadow, 5, true);
     final paint = Paint();
-    // White separation, dark body, lime roof and unmistakable windshield.
-    canvas.drawRRect(body.inflate(2.5), paint..color = const Color(0xFFFFFFFF));
-    canvas.drawRRect(body, paint..color = const Color(0xFF153C34));
+    // White separation, blue body, turquoise roof and unmistakable windshield.
+    canvas.drawRRect(body.inflate(2.5), paint..color = ZentryxColors.white);
+    canvas.drawRRect(body, paint..color = ZentryxColors.busBody);
     canvas.drawRRect(
       RRect.fromRectAndRadius(const Rect.fromLTWH(18, 8, 22, 40), const Radius.circular(6)),
-      paint..color = online ? const Color(0xFFD6F67A) : const Color(0xFFB1BCB5));
+      paint..color = online ? ZentryxColors.busRoof : ZentryxColors.busOffline);
     canvas.drawRRect(
       RRect.fromRectAndRadius(const Rect.fromLTWH(19, 12, 20, 9), const Radius.circular(3)),
-      paint..color = const Color(0xFF234B46));
+      paint..color = ZentryxColors.busGlass);
     canvas.drawLine(const Offset(21, 14), const Offset(31, 14),
-      paint..color = const Color(0xFF92C4BF)..strokeWidth = 2);
+      paint..color = ZentryxColors.busReflection..strokeWidth = 2);
     canvas.drawRRect(
       RRect.fromRectAndRadius(const Rect.fromLTWH(23, 26, 12, 13), const Radius.circular(3)),
-      paint..color = const Color(0xFFEAFBB5));
+      paint..color = ZentryxColors.busRoofHighlight);
     for (final x in [11.0, 43.0]) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(Rect.fromLTWH(x, 15, 4, 7), const Radius.circular(2)),
-        paint..color = const Color(0xFF153C34));
+        paint..color = ZentryxColors.busBody);
     }
     for (final x in [19.0, 36.0]) {
-      canvas.drawCircle(Offset(x, 9), 1.5, paint..color = const Color(0xFFFFFFFF));
-      canvas.drawCircle(Offset(x, 49), 1.5, paint..color = const Color(0xFFE85D5D));
+      canvas.drawCircle(Offset(x, 9), 1.5, paint..color = ZentryxColors.white);
+      canvas.drawCircle(Offset(x, 49), 1.5, paint..color = ZentryxColors.busTailLight);
     }
     if (!online) {
-      canvas.drawCircle(const Offset(44, 44), 5, paint..color = const Color(0xFFD58B22));
+      canvas.drawCircle(const Offset(44, 44), 5, paint..color = ZentryxColors.busOfflineBadge);
     }
     canvas.restore();
   }

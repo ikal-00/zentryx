@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
 
 class StationMarker extends StatelessWidget {
   const StationMarker({required this.name, required this.isNext,
@@ -24,20 +25,20 @@ class StationMarker extends StatelessWidget {
             height: prominent ? 30 : 19,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: selected ? const Color(0xFF153C34) : const Color(0xFFFFFFFF),
-              border: Border.all(color: const Color(0xFF153C34), width: 3),
+              color: selected ? ZentryxColors.stationSelected : ZentryxColors.white,
+              border: Border.all(color: ZentryxColors.stationBorder, width: 3),
               boxShadow: [
                 BoxShadow(
-                  color: prominent ? const Color(0x99D6F67A) : const Color(0xBBFFFFFF),
+                  color: prominent ? ZentryxColors.stationHalo : ZentryxColors.stationNormalHalo,
                   spreadRadius: prominent ? 5 : 2,
                   blurRadius: prominent ? 2 : 0,
                 ),
-                const BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 2)),
+                const BoxShadow(color: ZentryxColors.markerShadow, blurRadius: 4, offset: Offset(0, 2)),
               ],
             ),
             child: prominent
                 ? Icon(selected ? CupertinoIcons.checkmark : CupertinoIcons.arrow_down,
-                    size: 16, color: selected ? const Color(0xFFD6F67A) : const Color(0xFF153C34))
+                    size: 16, color: selected ? ZentryxColors.white : ZentryxColors.stationBorder)
                 : null,
           ),
         ),
