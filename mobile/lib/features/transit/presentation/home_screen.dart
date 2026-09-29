@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -132,11 +133,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 PolylineLayer(polylines: [
                   // OSM tiles remain light even when the surrounding UI is dark.
                   Polyline(points: _routePoints, strokeWidth: 12,
-                      color: const Color(0xF2FFFFFF)),
+                      color: ZentryxColors.routeHalo),
                   Polyline(points: _routePoints, strokeWidth: 8,
-                      color: const Color(0xFF153C34)),
+                      color: ZentryxColors.routeBorder),
                   Polyline(points: _routePoints, strokeWidth: 3,
-                      color: const Color(0xFFD6F67A)),
+                      color: ZentryxColors.route),
                 ]),
               MarkerLayer(markers: [
                 for (final station in state.stations)
@@ -212,8 +213,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 const SizedBox(height: 4),
                 const Text('© OpenStreetMap contributors',
-                    style: TextStyle(fontSize: 10, color: Color(0xFF153C34),
-                        backgroundColor: Color(0xEFFFFFFF))),
+                    style: TextStyle(fontSize: 10, color: ZentryxColors.text,
+                        backgroundColor: ZentryxColors.attributionSurface)),
               ],
             ),
           ),

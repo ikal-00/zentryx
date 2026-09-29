@@ -69,8 +69,8 @@ class _RouteSheet extends StatelessWidget {
                           route == null
                               ? 'Mexibús · Línea 2'
                               : '${route!.networkName} · ${route!.lineLabel}',
-                          style: const TextStyle(
-                            color: ZentryxColors.ink,
+                          style: TextStyle(
+                            color: CupertinoDynamicColor.resolve(ZentryxColors.ink, context),
                             fontSize: 23,
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.5,
@@ -81,8 +81,8 @@ class _RouteSheet extends StatelessWidget {
                           _subtitle(),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: ZentryxColors.muted,
+                          style: TextStyle(
+                            color: CupertinoDynamicColor.resolve(ZentryxColors.muted, context),
                             fontSize: 13,
                           ),
                         ),
@@ -124,13 +124,13 @@ class _RouteSheet extends StatelessWidget {
                                 height: 30,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  color: line.withValues(alpha: 0.65),
+                                  color: CupertinoDynamicColor.resolve(ZentryxColors.selection, context),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Text(
                                   '${station.order}',
-                                  style: const TextStyle(
-                                    color: ZentryxColors.ink,
+                                  style: TextStyle(
+                                    color: CupertinoDynamicColor.resolve(ZentryxColors.onSelection, context),
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -140,17 +140,17 @@ class _RouteSheet extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   station.name,
-                                  style: const TextStyle(
-                                    color: ZentryxColors.ink,
+                                  style: TextStyle(
+                                    color: CupertinoDynamicColor.resolve(ZentryxColors.ink, context),
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
-                              const Icon(
+                              Icon(
                                 CupertinoIcons.chevron_forward,
                                 size: 16,
-                                color: ZentryxColors.muted,
+                                color: CupertinoDynamicColor.resolve(ZentryxColors.muted, context),
                               ),
                             ],
                           ),

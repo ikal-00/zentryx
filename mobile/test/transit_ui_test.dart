@@ -148,8 +148,8 @@ void main() {
         await tester.pumpWidget(ProviderScope(overrides: [
           transitControllerProvider.overrideWith((ref) => _Controller()),
         ], child: CupertinoApp(debugShowCheckedModeBanner: false, theme: zentryxTheme.copyWith(textTheme: const CupertinoTextThemeData(
-            textStyle: TextStyle(fontFamily: 'ReviewFont', color: Color(0xFF153C34)),
-            actionTextStyle: TextStyle(fontFamily: 'ReviewFont', color: Color(0xFF153C34)))),
+            textStyle: TextStyle(fontFamily: 'ReviewFont', color: ZentryxColors.ink),
+            actionTextStyle: TextStyle(fontFamily: 'ReviewFont', color: ZentryxColors.action))),
           home: MediaQuery(data: MediaQueryData(size: Size(width, 844),
               padding: const EdgeInsets.only(top: 47, bottom: 34)),
               child: RepaintBoundary(key: key, child: HomeScreen(tileProvider: _Tiles()))))));
