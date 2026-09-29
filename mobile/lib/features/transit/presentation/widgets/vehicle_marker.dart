@@ -86,7 +86,7 @@ class _AnimatedVehicleLayerState extends State<AnimatedVehicleLayer>
         ),
         builder: (context, child) {
           final pose = _motion.sample(_controller.value);
-          return MarkerLayer(markers: [
+          return IgnorePointer(child: MarkerLayer(markers: [
             Marker(
               point: pose.position,
               width: 58,
@@ -99,7 +99,7 @@ class _AnimatedVehicleLayerState extends State<AnimatedVehicleLayer>
                 ),
               ),
             ),
-          ]);
+          ]));
         },
       );
 }

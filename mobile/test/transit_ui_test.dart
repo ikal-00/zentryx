@@ -76,7 +76,7 @@ void main() {
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
-        await tester.pumpWidget(CupertinoApp(theme: zentryxTheme,
+        await tester.pumpWidget(CupertinoApp(debugShowCheckedModeBanner: false, theme: zentryxTheme,
           home: MediaQuery(data: MediaQueryData(size: Size(width, 844), textScaler: TextScaler.linear(scale)),
             child: CupertinoPageScaffold(child: Align(alignment: Alignment.bottomCenter,
               child: Padding(padding: const EdgeInsets.all(14),
@@ -111,7 +111,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(ProviderScope(overrides: [
       transitControllerProvider.overrideWith((ref) => _Controller()),
-    ], child: CupertinoApp(theme: zentryxTheme, home: HomeScreen(tileProvider: _Tiles()))));
+    ], child: CupertinoApp(debugShowCheckedModeBanner: false, theme: zentryxTheme, home: HomeScreen(tileProvider: _Tiles()))));
     await tester.pumpAndSettle();
     expect(find.byType(StationMarker), findsNWidgets(2));
     await tester.tap(find.byWidgetPredicate((w) => w is StationMarker && w.name == station.name));
@@ -144,7 +144,7 @@ void main() {
         final key = GlobalKey();
         await tester.pumpWidget(ProviderScope(overrides: [
           transitControllerProvider.overrideWith((ref) => _Controller()),
-        ], child: CupertinoApp(theme: zentryxTheme.copyWith(textTheme: const CupertinoTextThemeData(
+        ], child: CupertinoApp(debugShowCheckedModeBanner: false, theme: zentryxTheme.copyWith(textTheme: const CupertinoTextThemeData(
             textStyle: TextStyle(fontFamily: 'ReviewFont', color: Color(0xFF153C34)))),
           home: RepaintBoundary(key: key, child: HomeScreen(tileProvider: _Tiles())))));
         await tester.pumpAndSettle();
