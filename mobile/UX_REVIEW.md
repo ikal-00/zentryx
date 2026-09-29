@@ -45,7 +45,8 @@ Se conservan esos datos, con velocidad/progreso/distancia/hora en Detalles.
   usa una zona muerta de aproximadamente 2 px. Sus ticks se detienen al alcanzar
   el objetivo. Un gesto cancela inmediatamente el seguimiento y el centrado.
 - El marcador es un autobús vectorial original con `CustomPainter`, aislado por
-  `RepaintBoundary`. No se copian assets ni se recalcula la ruta por frame.
+  `RepaintBoundary`. La capa decorativa no intercepta los toques de estaciones
+  cuando se superponen (regresión encontrada por test de interacción). No se copian assets ni se recalcula la ruta por frame.
 - Ruta: halo blanco, cuerpo verde oscuro y centro lima. Estaciones de 19/30 px,
   halo y selección contrastantes, con áreas táctiles de 48 px. Vehículo encima.
 - Panel no modal de estación, reemplazable con otro toque. Solo se presenta ETA
