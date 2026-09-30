@@ -5,6 +5,7 @@ import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
 import 'package:zentryx_mobile/features/transit/application/transit_controller.dart';
 import 'package:zentryx_mobile/features/transit/domain/models.dart';
 import 'glass_surface.dart';
+import 'live_status_indicator.dart';
 
 String occupancyLabel(String value) => switch (value.toLowerCase()) {
   'low' || 'baja' => 'Baja',
@@ -114,9 +115,6 @@ class TransitStatusCard extends StatelessWidget {
               _Pill(icon: CupertinoIcons.person_2_fill,
                   label: 'Ocupación ${occupancyLabel(vehicle?.occupancyLevel ?? '')}',
                   color: ZentryxColors.occupancy(vehicle?.occupancyLevel ?? '')),
-              Text(state.loading ? 'Conectando…' : live ? 'En vivo' : 'Últimos datos',
-                  style: TextStyle(fontSize: 11,
-                      color: CupertinoDynamicColor.resolve(live ? ZentryxColors.success : ZentryxColors.warning, context))),
               CupertinoButton(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 minimumSize: const Size(44, 44),
@@ -125,6 +123,7 @@ class TransitStatusCard extends StatelessWidget {
               ),
             ],
           ),
+          LiveStatusIndicator(state: state),
           if (state.alerts.isNotEmpty) _AlertsButton(state: state),
           if (state.stale || state.error != null) Row(children: [
             Expanded(child: Text('Sin conexión · conservamos la última ubicación',

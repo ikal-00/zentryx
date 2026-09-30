@@ -99,6 +99,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final target = position == null ? null : LatLng(position.lat, position.lon);
     final selected = _selectedStation;
     return CupertinoPageScaffold(
+      navigationBar: Navigator.of(context).canPop()
+          ? const CupertinoNavigationBar(
+              middle: Text('Modo pasajero'), previousPageTitle: 'Inicio')
+          : null,
       child: Stack(
         fit: StackFit.expand,
         children: [

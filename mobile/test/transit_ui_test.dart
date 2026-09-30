@@ -75,6 +75,7 @@ void main() {
   for (final width in [360.0, 390.0, 430.0]) {
     for (final scale in [1.0, 1.6]) {
       testWidgets('HUD and station panel fit width $width text scale $scale', (tester) async {
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
         tester.view.physicalSize = Size(width, 844);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
@@ -101,13 +102,15 @@ void main() {
   }
 
   testWidgets('stale telemetry never presents a live ETA', (tester) async {
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
     await tester.pumpWidget(CupertinoApp(home: TransitStatusCard(
         state: fixtureState.copyWith(stale: true), onRefresh: () {})));
     expect(find.text('2 min'), findsNothing);
-    expect(find.text('Últimos datos'), findsOneWidget);
+    expect(find.text('Datos antiguos'), findsOneWidget);
   });
 
   testWidgets('station selection, switching, close, gestures and follow work on the map', (tester) async {
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -140,6 +143,7 @@ void main() {
   if (const bool.fromEnvironment('ZENTRYX_CAPTURE_REVIEW')) {
     for (final width in [360.0, 390.0, 430.0]) {
       testWidgets('capture actual Flutter UI at $width', (tester) async {
+        addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
         tester.view.physicalSize = Size(width, 844);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);

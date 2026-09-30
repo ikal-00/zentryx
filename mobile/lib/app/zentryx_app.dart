@@ -4,7 +4,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
 import 'package:zentryx_mobile/features/transit/application/transit_controller.dart';
-import 'package:zentryx_mobile/features/transit/presentation/home_screen.dart';
+
+import 'app_routes.dart';
 
 class ZentryxApp extends ConsumerStatefulWidget {
   const ZentryxApp({super.key});
@@ -29,6 +30,8 @@ class _ZentryxAppState extends ConsumerState<ZentryxApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Welcome and the local driver mode do not start passenger networking.
+    if (!ref.exists(transitControllerProvider)) return;
     final controller = ref.read(transitControllerProvider.notifier);
     if (state == AppLifecycleState.resumed) {
       unawaited(controller.resume());
@@ -46,7 +49,7 @@ class _ZentryxAppState extends ConsumerState<ZentryxApp>
       debugShowCheckedModeBanner: false,
       title: 'Zentryx',
       theme: zentryxTheme,
-      home: HomeScreen(),
+      onGenerateRoute: AppRoutes.generate,
     );
   }
 }
