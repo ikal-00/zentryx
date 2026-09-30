@@ -38,7 +38,7 @@ class _TimeLabelState extends State<TimeLabel> with WidgetsBindingObserver {
 
   void _schedule() {
     _timer?.cancel();
-    if (_foreground && TickerMode.of(context)) {
+    if (_foreground && TickerMode.valuesOf(context).enabled) {
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (mounted) setState(() {});
       });

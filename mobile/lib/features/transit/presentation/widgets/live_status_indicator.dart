@@ -6,8 +6,9 @@ import 'package:zentryx_mobile/features/transit/application/transit_controller.d
 
 /// Presentation-only interpretation. Never changes polling, ETA or motion.
 SystemStatus transitSystemStatus(TransitState state, DateTime now) {
-  if (state.vehicle != null && !state.vehicle!.isOnline)
+  if (state.vehicle != null && !state.vehicle!.isOnline) {
     return SystemStatus.disconnected;
+  }
   if (state.error != null && state.vehicle == null) return SystemStatus.error;
   if (state.stale || state.error != null) {
     return state.vehicle == null
