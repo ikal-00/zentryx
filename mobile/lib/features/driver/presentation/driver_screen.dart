@@ -176,15 +176,21 @@ class DriverScreen extends ConsumerWidget {
                                   return Semantics(
                                     label: 'Tiempo de recorrido: $clock',
                                     child: ExcludeSemantics(
-                                      child: Text(
-                                        clock,
-                                        style: const TextStyle(
-                                          fontSize: 40,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: -1,
-                                          fontFeatures: [
-                                            FontFeature.tabularFigures(),
-                                          ],
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          clock,
+                                          maxLines: 1,
+                                          softWrap: false,
+                                          style: const TextStyle(
+                                            fontSize: 40,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: -1,
+                                            fontFeatures: [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),

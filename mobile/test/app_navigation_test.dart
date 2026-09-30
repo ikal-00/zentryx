@@ -287,6 +287,7 @@ void main() {
           await _reveal(tester, find.text('Iniciar recorrido'));
           await tester.tap(find.text('Iniciar recorrido'));
           await tester.pumpAndSettle();
+          await _reveal(tester, find.text('Recorrido activo'));
           if (const bool.fromEnvironment('ZENTRYX_CAPTURE_REVIEW')) {
             await _capture(
               tester,
@@ -314,6 +315,7 @@ Future<void> _capture(WidgetTester tester, GlobalKey key, String name) async {
     object.markNeedsPaint();
     object.visitChildren(repaint);
   }
+
   repaint(key.currentContext!.findRenderObject()!);
   await tester.pump();
   try {
