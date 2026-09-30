@@ -310,7 +310,11 @@ void main() {
 
 Future<void> _capture(WidgetTester tester, GlobalKey key, String name) async {
   debugDisableShadows = false;
-  await tester.binding.reassembleApplication();
+  void repaint(RenderObject object) {
+    object.markNeedsPaint();
+    object.visitChildren(repaint);
+  }
+  repaint(key.currentContext!.findRenderObject()!);
   await tester.pump();
   try {
     await tester.runAsync(() async {
