@@ -229,6 +229,17 @@ void main() {
               theme: zentryxTheme.copyWith(
                 brightness: brightness,
                 textTheme: const CupertinoTextThemeData(
+                  navTitleTextStyle: TextStyle(
+                    fontFamily: 'ReviewFont',
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: ZentryxColors.ink,
+                  ),
+                  navActionTextStyle: TextStyle(
+                    fontFamily: 'ReviewFont',
+                    fontSize: 17,
+                    color: ZentryxColors.action,
+                  ),
                   textStyle: TextStyle(
                     fontFamily: 'ReviewFont',
                     color: ZentryxColors.ink,
@@ -276,6 +287,13 @@ void main() {
           await _reveal(tester, find.text('Iniciar recorrido'));
           await tester.tap(find.text('Iniciar recorrido'));
           await tester.pumpAndSettle();
+          if (const bool.fromEnvironment('ZENTRYX_CAPTURE_REVIEW')) {
+            await _capture(
+              tester,
+              boundary,
+              'driver-active-${width.toInt()}-$scale-${brightness.name}',
+            );
+          }
           await _reveal(tester, find.text('Reportar incidente'));
           await tester.tap(find.text('Reportar incidente'));
           await tester.pumpAndSettle();
@@ -291,16 +309,24 @@ void main() {
 }
 
 Future<void> _capture(WidgetTester tester, GlobalKey key, String name) async {
-  await tester.runAsync(() async {
-    final image =
-        await (key.currentContext!.findRenderObject() as RenderRepaintBoundary)
-            .toImage();
-    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-    final file = File('build/visual-review/$name.png');
-    await file.parent.create(recursive: true);
-    await file.writeAsBytes(bytes!.buffer.asUint8List());
-    image.dispose();
-  });
+  debugDisableShadows = false;
+  await tester.binding.reassembleApplication();
+  await tester.pump();
+  try {
+    await tester.runAsync(() async {
+      final image =
+          await (key.currentContext!.findRenderObject()
+                  as RenderRepaintBoundary)
+              .toImage();
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      final file = File('build/visual-review/$name.png');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(bytes!.buffer.asUint8List());
+      image.dispose();
+    });
+  } finally {
+    debugDisableShadows = true;
+  }
 }
 
 Future<void> _reveal(WidgetTester tester, Finder target) async {
