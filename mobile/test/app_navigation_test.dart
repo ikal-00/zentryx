@@ -124,14 +124,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(WelcomeScreen), findsOneWidget);
       expect(container.exists(transitControllerProvider), isFalse);
-      tester.binding.handleAppLifecycleStateChanged(
-        AppLifecycleState.paused,
-      );
-      tester.binding.handleAppLifecycleStateChanged(
-        AppLifecycleState.resumed,
-      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       expect(container.exists(transitControllerProvider), isFalse);
-      await tester.ensureVisible(find.text('Soy conductor'));
+      await _reveal(tester, find.text('Soy conductor'));
       await tester.tap(find.text('Soy conductor'));
       await tester.pumpAndSettle();
       expect(find.byType(DriverScreen), findsOneWidget);
@@ -152,7 +148,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Soy pasajero'));
+      await _reveal(tester, find.text('Soy pasajero'));
       await tester.tap(find.text('Soy pasajero'));
       await tester.pumpAndSettle();
       expect(find.byType(HomeScreen), findsOneWidget);
@@ -177,15 +173,15 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Soy conductor'));
+    await _reveal(tester, find.text('Soy conductor'));
     await tester.tap(find.text('Soy conductor'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Iniciar recorrido'));
+    await _reveal(tester, find.text('Iniciar recorrido'));
     await tester.tap(find.text('Iniciar recorrido'));
     await tester.pumpAndSettle();
     expect(find.text('Recorrido activo'), findsOneWidget);
     final started = container.read(driverSessionProvider).startedAt;
-    await tester.ensureVisible(find.text('Reportar incidente'));
+    await _reveal(tester, find.text('Reportar incidente'));
     await tester.tap(find.text('Reportar incidente'));
     await tester.pumpAndSettle();
     expect(find.text('Estación cerrada'), findsOneWidget);
@@ -196,16 +192,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tráfico'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Registrado localmente: Tráfico'));
+    await _reveal(tester, find.text('Registrado localmente: Tráfico'));
     expect(find.text('Registrado localmente: Tráfico'), findsOneWidget);
     expect(container.read(driverSessionProvider).reportCount, 1);
     await tester.tap(find.byType(CupertinoNavigationBarBackButton));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Soy conductor'));
+    await _reveal(tester, find.text('Soy conductor'));
     await tester.tap(find.text('Soy conductor'));
     await tester.pumpAndSettle();
     expect(container.read(driverSessionProvider).startedAt, started);
-    await tester.ensureVisible(find.text('Finalizar recorrido'));
+    await _reveal(tester, find.text('Finalizar recorrido'));
     await tester.tap(find.text('Finalizar recorrido'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Finalizar'));
@@ -266,7 +262,7 @@ void main() {
               'welcome-${width.toInt()}-$scale-${brightness.name}',
             );
           }
-          await tester.ensureVisible(find.text('Soy conductor'));
+          await _reveal(tester, find.text('Soy conductor'));
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(host(const DriverScreen()));
           await tester.pumpAndSettle();
@@ -277,18 +273,16 @@ void main() {
               'driver-${width.toInt()}-$scale-${brightness.name}',
             );
           }
-          await tester.ensureVisible(find.text('Iniciar recorrido'));
+          await _reveal(tester, find.text('Iniciar recorrido'));
           await tester.tap(find.text('Iniciar recorrido'));
           await tester.pumpAndSettle();
-          await tester.ensureVisible(find.text('Reportar incidente'));
+          await _reveal(tester, find.text('Reportar incidente'));
           await tester.tap(find.text('Reportar incidente'));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
           await tester.tap(find.text('Accidente'));
           await tester.pumpAndSettle();
-          await tester.ensureVisible(
-            find.text('Registrado localmente: Accidente'),
-          );
+          await _reveal(tester, find.text('Registrado localmente: Accidente'));
           expect(tester.takeException(), isNull);
         });
       }
@@ -307,4 +301,23 @@ Future<void> _capture(WidgetTester tester, GlobalKey key, String name) async {
     await file.writeAsBytes(bytes!.buffer.asUint8List());
     image.dispose();
   });
+}
+
+Future<void> _reveal(WidgetTester tester, Finder target) async {
+  if (target.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      target,
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byType(DriverScreen),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+      maxScrolls: 30,
+    );
+  } else {
+    await tester.ensureVisible(target);
+  }
+  await tester.pumpAndSettle();
 }
