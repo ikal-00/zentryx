@@ -40,13 +40,13 @@ class TransitHeaderCard extends StatelessWidget {
           Text('${state.route?.networkName ?? 'Mexibús'} · ${state.route?.lineLabel ?? 'L2'}',
               maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-          const Text('Zentryx · Ruta y estaciones',
+          Text('Zentryx · Ruta y estaciones',
               maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: ZentryxColors.muted, fontSize: 11)),
+              style: TextStyle(color: CupertinoDynamicColor.resolve(ZentryxColors.muted, context), fontSize: 11)),
         ],
       )),
       Icon(state.stale ? CupertinoIcons.wifi_slash : CupertinoIcons.chevron_down,
-          size: 15, color: state.stale ? ZentryxColors.warning : ZentryxColors.muted),
+          size: 15, color: CupertinoDynamicColor.resolve(state.stale ? ZentryxColors.warning : ZentryxColors.muted, context)),
     ]),
   );
 }
@@ -67,7 +67,7 @@ class MapFollowButton extends StatelessWidget {
         borderRadius: 20,
         padding: const EdgeInsets.all(15),
         child: Icon(following ? CupertinoIcons.location_fill : CupertinoIcons.location,
-            size: 22, color: ZentryxColors.ink),
+            size: 22, color: CupertinoDynamicColor.resolve(following ? ZentryxColors.action : ZentryxColors.muted, context)),
       ),
     ),
   );
@@ -89,12 +89,12 @@ class TransitStatusCard extends StatelessWidget {
         children: [
           Text(vehicle == null ? 'Esperando unidad' : 'Unidad ${vehicle.vehicleId}',
               maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: ZentryxColors.muted)),
+              style: TextStyle(fontSize: 11, color: CupertinoDynamicColor.resolve(ZentryxColors.muted, context))),
           const SizedBox(height: 7),
           Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('PRÓXIMA ESTACIÓN', style: TextStyle(
-                  fontSize: 10, fontWeight: FontWeight.w600, color: ZentryxColors.muted)),
+              Text('PRÓXIMA ESTACIÓN', style: TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.w600, color: CupertinoDynamicColor.resolve(ZentryxColors.muted, context))),
               const SizedBox(height: 2),
               Text(vehicle?.nextStationName ?? 'Esperando ubicación',
                   maxLines: 2, overflow: TextOverflow.ellipsis,
@@ -107,15 +107,16 @@ class TransitStatusCard extends StatelessWidget {
           Text(vehicle?.directionLabel.isNotEmpty == true
                   ? vehicle!.directionLabel : 'Dirección por confirmar',
               maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12, color: ZentryxColors.muted)),
+              style: TextStyle(fontSize: 12, color: CupertinoDynamicColor.resolve(ZentryxColors.muted, context))),
           const SizedBox(height: 8),
           Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _Pill(icon: CupertinoIcons.person_2_fill,
-                  label: 'Ocupación ${occupancyLabel(vehicle?.occupancyLevel ?? '')}'),
+                  label: 'Ocupación ${occupancyLabel(vehicle?.occupancyLevel ?? '')}',
+                  color: ZentryxColors.occupancy(vehicle?.occupancyLevel ?? '')),
               Text(state.loading ? 'Conectando…' : live ? 'En vivo' : 'Últimos datos',
                   style: TextStyle(fontSize: 11,
-                      color: live ? ZentryxColors.muted : ZentryxColors.warning)),
+                      color: CupertinoDynamicColor.resolve(live ? ZentryxColors.success : ZentryxColors.warning, context))),
               CupertinoButton(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 minimumSize: const Size(44, 44),
@@ -126,8 +127,8 @@ class TransitStatusCard extends StatelessWidget {
           ),
           if (state.alerts.isNotEmpty) _AlertsButton(state: state),
           if (state.stale || state.error != null) Row(children: [
-            const Expanded(child: Text('Sin conexión · conservamos la última ubicación',
-                style: TextStyle(fontSize: 11, color: ZentryxColors.muted))),
+            Expanded(child: Text('Sin conexión · conservamos la última ubicación',
+                style: TextStyle(fontSize: 11, color: CupertinoDynamicColor.resolve(ZentryxColors.muted, context)))),
             CupertinoButton(
               padding: const EdgeInsets.only(left: 8),
               minimumSize: const Size(44, 44),
@@ -163,7 +164,7 @@ class StationStatusCard extends StatelessWidget {
           Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('ESTACIÓN · ${state.route?.lineLabel ?? 'L2'}',
-                  style: const TextStyle(fontSize: 10, color: ZentryxColors.muted)),
+                  style: TextStyle(fontSize: 10, color: CupertinoDynamicColor.resolve(ZentryxColors.muted, context))),
               Text(station.name, maxLines: 2, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700)),
             ])),
@@ -177,10 +178,10 @@ class StationStatusCard extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 5),
             Text('Ocupación ${occupancyLabel(vehicle.occupancyLevel)} · ${live ? 'En vivo' : 'Últimos datos'}',
-                style: const TextStyle(fontSize: 12, color: ZentryxColors.muted)),
+                style: TextStyle(fontSize: 12, color: CupertinoDynamicColor.resolve(ZentryxColors.muted, context))),
           ] else
-            const Text('Llegadas a esta estación aún no disponibles.',
-                style: TextStyle(fontSize: 13, color: ZentryxColors.muted)),
+            Text('Llegadas a esta estación aún no disponibles.',
+                style: TextStyle(fontSize: 13, color: CupertinoDynamicColor.resolve(ZentryxColors.muted, context))),
           if (state.alerts.isNotEmpty) _AlertsButton(state: state),
           CupertinoButton(padding: const EdgeInsets.only(top: 8), onPressed: onCenter,
               child: const Text('Centrar estación', style: TextStyle(fontSize: 13))),
@@ -196,28 +197,29 @@ class _EtaBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-    decoration: BoxDecoration(color: ZentryxColors.accent, borderRadius: BorderRadius.circular(16)),
+    decoration: BoxDecoration(color: CupertinoDynamicColor.resolve(ZentryxColors.selection, context), borderRadius: BorderRadius.circular(16)),
     child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Text(etaLabel(seconds), style: const TextStyle(color: Color(0xFF153C34),
+      Text(etaLabel(seconds), style: TextStyle(color: CupertinoDynamicColor.resolve(ZentryxColors.onSelection, context),
           fontSize: 20, fontWeight: FontWeight.w800)),
-      const Text('LLEGADA EST.', style: TextStyle(color: Color(0xFF153C34), fontSize: 9)),
+      Text('LLEGADA EST.', style: TextStyle(color: CupertinoDynamicColor.resolve(ZentryxColors.onSelection, context), fontSize: 9)),
     ]),
   );
 }
 
 class _Pill extends StatelessWidget {
-  const _Pill({required this.icon, required this.label});
+  const _Pill({required this.icon, required this.label, required this.color});
   final IconData icon;
   final String label;
+  final Color color;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
     decoration: BoxDecoration(color: CupertinoDynamicColor.resolve(ZentryxColors.line, context),
         borderRadius: BorderRadius.circular(12)),
     child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: 13, color: ZentryxColors.muted),
+      Icon(icon, size: 13, color: CupertinoDynamicColor.resolve(color, context)),
       const SizedBox(width: 5),
-      Flexible(child: Text(label, style: const TextStyle(fontSize: 11, color: ZentryxColors.muted))),
+      Flexible(child: Text(label, style: TextStyle(fontSize: 11, color: CupertinoDynamicColor.resolve(color, context)))),
     ]),
   );
 }
@@ -228,17 +230,19 @@ class _AlertsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final alert = state.alerts.first;
+    final color = CupertinoDynamicColor.resolve(
+        ZentryxColors.alert(alert.severity), context);
     return CupertinoButton(
       padding: const EdgeInsets.symmetric(vertical: 6),
       onPressed: () => _showDetails(context, state, alertsOnly: true),
       child: Row(children: [
         Icon(CupertinoIcons.exclamationmark_triangle_fill, size: 15,
-            color: alert.severity == 'critical' ? ZentryxColors.danger : ZentryxColors.warning),
+            color: color),
         const SizedBox(width: 7),
         Expanded(child: Text('${state.alerts.length} alerta(s) · ${alert.message}',
             maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12))),
-        const Icon(CupertinoIcons.chevron_right, size: 13),
+            style: TextStyle(fontSize: 12, color: color))),
+        Icon(CupertinoIcons.chevron_right, size: 13, color: color),
       ]),
     );
   }
@@ -259,7 +263,8 @@ void _showDetails(BuildContext context, TransitState state, {bool alertsOnly = f
         Text('Recorrido: ${progress != null && progress.isFinite ? (progress * 100).round() : '—'}%'),
         Text('Distancia a próxima estación: ${distance != null && distance.isFinite ? distance.round() : '—'} m'),
         Text('Actualización: ${updated ?? 'Sin hora'}'),
-        if (state.error != null) Text(state.error!),
+        if (state.error != null) Text(state.error!, style: TextStyle(
+            color: CupertinoDynamicColor.resolve(ZentryxColors.danger, sheetContext))),
         const SizedBox(height: 12),
       ],
       for (final alert in state.alerts) Padding(
