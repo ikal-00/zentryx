@@ -73,7 +73,8 @@ void main() {
       var time = now;
       final source = SimulatedDeviceTelemetrySource(clock: () => time);
       final packets = <DeviceTelemetry>[];
-      final sub = source.updates.listen(packets.add);
+      var streamClosed = false;
+      source.updates.listen(packets.add, onDone: () => streamClosed = true);
       source.start();
       source.start();
       async.flushMicrotasks();
@@ -94,11 +95,7 @@ void main() {
       async.elapse(const Duration(seconds: 20));
       expect(packets.length, 4);
       expect(async.periodicTimerCount, 0);
-      var cancelled = false;
-      sub.cancel().then((_) => cancelled = true);
-      async.flushMicrotasks();
-      async.elapse(Duration.zero);
-      expect(cancelled, isTrue);
+      expect(streamClosed, isTrue);
       expect(async.pendingTimers, isEmpty);
     });
   });
