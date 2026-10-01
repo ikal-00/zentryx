@@ -56,7 +56,7 @@ class DeviceChecks extends StatelessWidget {
         ? SystemStatus.error
         : pending
         ? health.status
-        : !telemetry.connected
+        : health == TelemetryHealth.disconnected || !telemetry.connected
         ? SystemStatus.disconnected
         : !packetFresh
         ? SystemStatus.stale

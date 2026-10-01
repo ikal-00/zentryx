@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zentryx_mobile/app/zentryx_app.dart';
+import 'package:zentryx_mobile/features/transit/application/transit_controller.dart';
 import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
 import 'package:zentryx_mobile/features/driver/application/driver_session.dart';
 import 'package:zentryx_mobile/features/driver/application/device_telemetry_controller.dart';
@@ -92,6 +93,44 @@ void main() {
       expect(find.text('Registrado localmente: Otro'), findsOneWidget);
     },
   );
+  testWidgets(
+    'device adapter pauses in background and is disposed on return to welcome',
+    (tester) async {
+      final source = FixedTelemetrySource(demoPacket());
+      final container = ProviderContainer(
+        overrides: [
+          driverSessionStoreProvider.overrideWithValue(MemorySessionStore()),
+          deviceTelemetrySourceProvider.overrideWith((ref) {
+            ref.onDispose(source.dispose);
+            return source;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const ZentryxApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _reveal(tester, find.text('Soy conductor'));
+      await tester.tap(find.text('Soy conductor'));
+      await tester.pumpAndSettle();
+      expect(source.starts, 1);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      expect(source.pauses, greaterThan(0));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      expect(source.starts, 2);
+      expect(container.exists(transitControllerProvider), isFalse);
+      await tester.tap(find.byType(CupertinoNavigationBarBackButton));
+      await tester.pumpAndSettle();
+      expect(source.disposed, isTrue);
+      expect(container.exists(deviceTelemetryProvider), isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final entry in {
     SimulatedTelemetryScenario.disconnected: 'Dispositivo desconectado',
     SimulatedTelemetryScenario.noGps: 'GPS sin señal',
@@ -121,8 +160,8 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await _reveal(tester, find.text(entry.value));
-        expect(find.text(entry.value), findsOneWidget);
+        await _reveal(tester, find.text(entry.value).last);
+        expect(find.text(entry.value), findsWidgets);
         expect(tester.takeException(), isNull);
       },
     );

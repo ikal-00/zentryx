@@ -111,6 +111,24 @@ restauración en otro controlador/ProviderScope, finalización persistida, repor
 errores de lectura/escritura y orden de escrituras. Preparación y diagnóstico se
 comprueban a 360/390/430 px, texto 1x/2x, claro/oscuro. Las capturas opcionales se
 generan con `--dart-define=ZENTRYX_CAPTURE_REVIEW=true` en build/visual-review.
-Las pruebas de persistencia inyectan almacenamiento controlado. El cierre forzado
-y recuperación con el plugin nativo, los haptics y la fluidez se deben verificar
-además en un iPhone/Android físico; no se afirma esa validación aquí.
+Las pruebas unitarias de persistencia inyectan almacenamiento controlado para
+fallos y concurrencia. `integration_test/driver_restart_test.dart` añade dos
+invocaciones nativas consecutivas en el mismo iPhone Simulator, con el plugin
+real SharedPreferencesAsync y procesos distintos. La fase `write` recorre
+bienvenida → preparación → inicio → dashboard → diagnóstico → reporte local;
+la fase `restore` comprueba el startedAt exacto, unidad e incidente guardados.
+Ejecutar sobre el mismo dispositivo, en ese orden:
+
+```sh
+flutter test integration_test/driver_restart_test.dart -d <simulator-id> --no-uninstall --dart-define=ZENTRYX_RESTART_PHASE=write
+flutter test integration_test/driver_restart_test.dart -d <simulator-id> --no-uninstall --dart-define=ZENTRYX_RESTART_PHASE=restore
+```
+
+`--no-uninstall` detiene el proceso sin desinstalar la app ni borrar sus datos
+entre fases. Usar un simulador de prueba: la fase write limpia únicamente la clave de sesión
+de Zentryx y una clave de verificación; restore limpia ambas al terminar.
+CI ejecuta estas dos fases después del build iOS. El test verifica un reinicio
+normal de proceso tras guardar, no pérdida de energía durante una escritura.
+Los haptics, la fluidez y el cierre abrupto en hardware físico siguen requiriendo
+un iPhone/Android real. No se afirma esa validación aquí.
+`pubspec.lock` conserva las versiones resueltas para reproducir la validación.

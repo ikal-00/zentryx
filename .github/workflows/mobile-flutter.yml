@@ -105,7 +105,7 @@ jobs:
           xcrun simctl bootstatus "$DEVICE_ID" -b
       - name: Native driver flow and save session
         working-directory: mobile
-        run: flutter test integration_test/driver_restart_test.dart -d "$ZENTRYX_SIMULATOR" --dart-define=ZENTRYX_RESTART_PHASE=write
+        run: flutter test integration_test/driver_restart_test.dart -d "$ZENTRYX_SIMULATOR" --no-uninstall --dart-define=ZENTRYX_RESTART_PHASE=write
       - name: Restore session in a new native app process
         working-directory: mobile
-        run: flutter test integration_test/driver_restart_test.dart -d "$ZENTRYX_SIMULATOR" --dart-define=ZENTRYX_RESTART_PHASE=restore
+        run: flutter test integration_test/driver_restart_test.dart -d "$ZENTRYX_SIMULATOR" --no-uninstall --dart-define=ZENTRYX_RESTART_PHASE=restore

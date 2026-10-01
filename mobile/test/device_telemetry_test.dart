@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zentryx_mobile/features/driver/domain/device_telemetry.dart';
 import 'package:zentryx_mobile/features/driver/data/simulated_device_telemetry_source.dart';
@@ -41,6 +39,32 @@ void main() {
     expect(
       sample.healthAt(now.subtract(const Duration(minutes: 1))),
       TelemetryHealth.stale,
+    );
+  });
+  test('UTC timestamps preserve instants and packet reception cannot freshen an old fix', () {
+    final source = SimulatedDeviceTelemetrySource();
+    addTearDown(source.dispose);
+    final sample = source.sampleAt(DateTime.parse('2026-09-30T18:00:00-06:00'));
+    expect(sample.lastPacketAt, DateTime.utc(2026, 10, 1));
+    expect(sample.lastPacketAt!.isUtc, isTrue);
+    final oldFix = DeviceTelemetry(
+      deviceId: 'hardware-test',
+      unit: sample.unit,
+      sourceType: TelemetrySourceType.hardware,
+      sourceLabel: 'Test',
+      signal: DeviceSignal.ready,
+      connected: true,
+      gpsAvailable: true,
+      serverConnected: true,
+      latitude: 19,
+      longitude: -99,
+      lastPacketAt: now,
+      lastGpsFixAt: now.subtract(const Duration(seconds: 11)),
+    );
+    expect(oldFix.healthAt(now), TelemetryHealth.noGps);
+    expect(
+      sample.healthAt(now.add(const Duration(seconds: 10))),
+      TelemetryHealth.operational,
     );
   });
   testWidgets('simulator has one timer and cancels it on pause and dispose', (

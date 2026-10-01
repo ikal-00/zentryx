@@ -116,7 +116,8 @@ class DeviceDiagnosticsScreen extends ConsumerWidget {
                           label: 'Último fix',
                           value: updatedAgo(data.lastGpsFixAt, now),
                         ),
-                        if (!data.fresh(data.lastGpsFixAt, now) &&
+                        if ((!data.fresh(data.lastGpsFixAt, now) ||
+                                !data.fresh(data.lastPacketAt, now)) &&
                             data.validPosition)
                           const Text(
                             'Coordenadas del último fix; no representan una posición actual.',

@@ -32,12 +32,22 @@ class FixedTelemetrySource implements DeviceTelemetrySource {
   final events = StreamController<DeviceTelemetry>.broadcast();
   @override
   Stream<DeviceTelemetry> get updates => events.stream;
+  int starts = 0;
+  int pauses = 0;
+  bool disposed = false;
   @override
-  void start() {}
+  void start() {
+    starts++;
+  }
+
   @override
-  void pause() {}
+  void pause() {
+    pauses++;
+  }
+
   @override
   void dispose() {
+    disposed = true;
     unawaited(events.close());
   }
 }
