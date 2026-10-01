@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zentryx_mobile/app/zentryx_app.dart';
 import 'package:zentryx_mobile/features/transit/application/transit_controller.dart';
 import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
+import 'package:zentryx_mobile/design_system/system_status.dart';
 import 'package:zentryx_mobile/features/driver/application/driver_session.dart';
 import 'package:zentryx_mobile/features/driver/application/device_telemetry_controller.dart';
 import 'package:zentryx_mobile/features/driver/data/driver_session_store.dart';
@@ -160,8 +161,12 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await _reveal(tester, find.text(entry.value).last);
-        expect(find.text(entry.value), findsWidgets);
+        final status = find.descendant(
+          of: find.byType(SystemStatusCard),
+          matching: find.text(entry.value),
+        );
+        await _reveal(tester, status);
+        expect(status, findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );

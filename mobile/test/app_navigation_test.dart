@@ -123,25 +123,31 @@ void main() {
           driverSessionStoreProvider.overrideWithValue(MemorySessionStore()),
         ],
       );
-      addTearDown(container.dispose);
       addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const ZentryxApp(),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(WelcomeScreen), findsOneWidget);
-      expect(container.exists(transitControllerProvider), isFalse);
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-      expect(container.exists(transitControllerProvider), isFalse);
-      await _reveal(tester, find.text('Soy conductor'));
-      await tester.tap(find.text('Soy conductor'));
-      await tester.pumpAndSettle();
-      expect(find.byType(DriverScreen), findsOneWidget);
-      expect(container.exists(transitControllerProvider), isFalse);
+      try {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const ZentryxApp(),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(WelcomeScreen), findsOneWidget);
+        expect(container.exists(transitControllerProvider), isFalse);
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        expect(container.exists(transitControllerProvider), isFalse);
+        await _reveal(tester, find.text('Soy conductor'));
+        await tester.tap(find.text('Soy conductor'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DriverScreen), findsOneWidget);
+        expect(container.exists(transitControllerProvider), isFalse);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        container.dispose();
+      }
     },
   );
 
@@ -179,50 +185,54 @@ void main() {
         driverSessionStoreProvider.overrideWithValue(MemorySessionStore()),
       ],
     );
-    addTearDown(container.dispose);
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const ZentryxApp(),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await _reveal(tester, find.text('Soy conductor'));
-    await tester.tap(find.text('Soy conductor'));
-    await tester.pumpAndSettle();
-    await _reveal(tester, find.text('Iniciar recorrido'));
-    await tester.tap(find.text('Iniciar recorrido'));
-    await tester.pumpAndSettle();
-    expect(find.text('Recorrido activo'), findsOneWidget);
-    final started = container.read(driverSessionProvider).startedAt;
-    await _reveal(tester, find.text('Reportar incidente'));
-    await tester.tap(find.text('Reportar incidente'));
-    await tester.pumpAndSettle();
-    expect(find.text('Estación cerrada'), findsOneWidget);
-    await tester.tap(find.text('Cancelar'));
-    await tester.pumpAndSettle();
-    expect(container.read(driverSessionProvider).reportCount, 0);
-    await tester.tap(find.text('Reportar incidente'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Tráfico'));
-    await tester.pumpAndSettle();
-    await _reveal(tester, find.text('Registrado localmente: Tráfico'));
-    expect(find.text('Registrado localmente: Tráfico'), findsOneWidget);
-    expect(container.read(driverSessionProvider).reportCount, 1);
-    await tester.tap(find.byType(CupertinoNavigationBarBackButton));
-    await tester.pumpAndSettle();
-    await _reveal(tester, find.text('Soy conductor'));
-    await tester.tap(find.text('Soy conductor'));
-    await tester.pumpAndSettle();
-    expect(container.read(driverSessionProvider).startedAt, started);
-    await _reveal(tester, find.text('Finalizar recorrido'));
-    await tester.tap(find.text('Finalizar recorrido'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Finalizar'));
-    await tester.pumpAndSettle();
-    expect(container.read(driverSessionProvider).active, isFalse);
-    expect(container.read(driverSessionProvider).reportCount, 1);
-    expect(tester.takeException(), isNull);
+    try {
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const ZentryxApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _reveal(tester, find.text('Soy conductor'));
+      await tester.tap(find.text('Soy conductor'));
+      await tester.pumpAndSettle();
+      await _reveal(tester, find.text('Iniciar recorrido'));
+      await tester.tap(find.text('Iniciar recorrido'));
+      await tester.pumpAndSettle();
+      expect(find.text('Recorrido activo'), findsOneWidget);
+      final started = container.read(driverSessionProvider).startedAt;
+      await _reveal(tester, find.text('Reportar incidente'));
+      await tester.tap(find.text('Reportar incidente'));
+      await tester.pumpAndSettle();
+      expect(find.text('Estación cerrada'), findsOneWidget);
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(container.read(driverSessionProvider).reportCount, 0);
+      await tester.tap(find.text('Reportar incidente'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tráfico'));
+      await tester.pumpAndSettle();
+      await _reveal(tester, find.text('Registrado localmente: Tráfico'));
+      expect(find.text('Registrado localmente: Tráfico'), findsOneWidget);
+      expect(container.read(driverSessionProvider).reportCount, 1);
+      await tester.tap(find.byType(CupertinoNavigationBarBackButton));
+      await tester.pumpAndSettle();
+      await _reveal(tester, find.text('Soy conductor'));
+      await tester.tap(find.text('Soy conductor'));
+      await tester.pumpAndSettle();
+      expect(container.read(driverSessionProvider).startedAt, started);
+      await _reveal(tester, find.text('Finalizar recorrido'));
+      await tester.tap(find.text('Finalizar recorrido'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Finalizar'));
+      await tester.pumpAndSettle();
+      expect(container.read(driverSessionProvider).active, isFalse);
+      expect(container.read(driverSessionProvider).reportCount, 1);
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      container.dispose();
+    }
   });
 
   for (final width in [360.0, 390.0, 430.0]) {

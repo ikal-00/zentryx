@@ -1,3 +1,4 @@
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zentryx_mobile/features/driver/domain/device_telemetry.dart';
 import 'package:zentryx_mobile/features/driver/data/simulated_device_telemetry_source.dart';
@@ -67,31 +68,39 @@ void main() {
       TelemetryHealth.operational,
     );
   });
-  testWidgets('simulator has one timer and cancels it on pause and dispose', (
-    tester,
-  ) async {
-    var time = now;
-    final source = SimulatedDeviceTelemetrySource(clock: () => time);
-    final packets = <DeviceTelemetry>[];
-    final sub = source.updates.listen(packets.add);
-    source.start();
-    source.start();
-    await tester.pump();
-    expect(packets.length, 1);
-    await tester.pump(const Duration(seconds: 4));
-    expect(packets.length, 3);
-    source.pause();
-    await tester.pump(const Duration(seconds: 20));
-    expect(packets.length, 3);
-    time = now.add(const Duration(seconds: 24));
-    source.start();
-    await tester.pump();
-    expect(packets.length, 4);
-    expect(packets.last.lastPacketAt, time);
-    source.dispose();
-    await tester.pump(const Duration(seconds: 20));
-    expect(packets.length, 4);
-    await sub.cancel();
+  test('simulator has one timer and cancels it on pause and dispose', () {
+    fakeAsync((async) {
+      var time = now;
+      final source = SimulatedDeviceTelemetrySource(clock: () => time);
+      final packets = <DeviceTelemetry>[];
+      final sub = source.updates.listen(packets.add);
+      source.start();
+      source.start();
+      async.flushMicrotasks();
+      expect(packets.length, 1);
+      expect(async.periodicTimerCount, 1);
+      async.elapse(const Duration(seconds: 4));
+      expect(packets.length, 3);
+      source.pause();
+      expect(async.periodicTimerCount, 0);
+      async.elapse(const Duration(seconds: 20));
+      expect(packets.length, 3);
+      time = now.add(const Duration(seconds: 24));
+      source.start();
+      async.flushMicrotasks();
+      expect(packets.length, 4);
+      expect(packets.last.lastPacketAt, time);
+      source.dispose();
+      async.elapse(const Duration(seconds: 20));
+      expect(packets.length, 4);
+      expect(async.periodicTimerCount, 0);
+      var cancelled = false;
+      sub.cancel().then((_) => cancelled = true);
+      async.flushMicrotasks();
+      async.elapse(Duration.zero);
+      expect(cancelled, isTrue);
+      expect(async.pendingTimers, isEmpty);
+    });
   });
   test(
     'source errors and stream completion become failure/disconnected states',
