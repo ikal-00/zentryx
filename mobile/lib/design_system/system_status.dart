@@ -3,7 +3,15 @@ import 'package:flutter/cupertino.dart';
 import 'zentryx_layout.dart';
 import 'zentryx_theme.dart';
 
-enum SystemStatus { connected, disconnected, syncing, error, stale }
+enum SystemStatus {
+  connected,
+  disconnected,
+  syncing,
+  error,
+  stale,
+  warning,
+  noData,
+}
 
 extension SystemStatusStyle on SystemStatus {
   String get label => switch (this) {
@@ -12,12 +20,15 @@ extension SystemStatusStyle on SystemStatus {
     SystemStatus.syncing => 'Actualizando',
     SystemStatus.error => 'Error',
     SystemStatus.stale => 'Datos antiguos',
+    SystemStatus.warning => 'Advertencia',
+    SystemStatus.noData => 'Sin datos',
   };
   Color get color => switch (this) {
     SystemStatus.connected => ZentryxColors.success,
     SystemStatus.syncing => ZentryxColors.info,
     SystemStatus.error => ZentryxColors.danger,
-    SystemStatus.stale => ZentryxColors.warning,
+    SystemStatus.stale || SystemStatus.warning => ZentryxColors.warning,
+    SystemStatus.noData => ZentryxColors.muted,
     SystemStatus.disconnected => ZentryxColors.muted,
   };
   IconData get icon => switch (this) {
@@ -26,6 +37,8 @@ extension SystemStatusStyle on SystemStatus {
     SystemStatus.syncing => CupertinoIcons.arrow_2_circlepath,
     SystemStatus.error => CupertinoIcons.exclamationmark_circle_fill,
     SystemStatus.stale => CupertinoIcons.clock_fill,
+    SystemStatus.warning => CupertinoIcons.exclamationmark_triangle_fill,
+    SystemStatus.noData => CupertinoIcons.minus_circle,
   };
 }
 

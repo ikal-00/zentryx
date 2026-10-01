@@ -19,6 +19,11 @@ import 'package:zentryx_mobile/features/transit/presentation/home_screen.dart';
 import 'package:zentryx_mobile/features/transit/presentation/widgets/live_status_indicator.dart';
 import 'package:zentryx_mobile/features/welcome/presentation/welcome_screen.dart';
 
+import 'package:zentryx_mobile/features/driver/data/driver_session_store.dart';
+import 'package:zentryx_mobile/features/driver/data/simulated_device_telemetry_source.dart';
+
+import 'driver_test_support.dart';
+
 import 'transit_ui_test.dart' show fixtureState, vehicle;
 
 class _TransitFixture extends TransitController {
@@ -94,15 +99,16 @@ void main() {
 
   test(
     'driver session is local, idempotent and keeps reports after stopping',
-    () {
-      final controller = DriverSessionController();
+    () async {
+      final controller = DriverSessionController(MemorySessionStore());
+      await controller.ready;
       addTearDown(controller.dispose);
-      controller.start();
+      await controller.start(SimulatedDeviceTelemetrySource.unit);
       final start = controller.state.startedAt;
-      controller.start();
+      await controller.start(SimulatedDeviceTelemetrySource.unit);
       expect(controller.state.startedAt, start);
-      controller.report(IncidentType.traffic);
-      controller.stop();
+      await controller.report(IncidentType.traffic);
+      await controller.stop();
       expect(controller.state.active, isFalse);
       expect(controller.state.lastIncident, IncidentType.traffic);
       expect(controller.state.reportCount, 1);
@@ -112,7 +118,11 @@ void main() {
   testWidgets(
     'welcome is immediate and lifecycle does not initialize transit',
     (tester) async {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          driverSessionStoreProvider.overrideWithValue(MemorySessionStore()),
+        ],
+      );
       addTearDown(container.dispose);
       addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
       await tester.pumpWidget(
@@ -164,7 +174,11 @@ void main() {
     tester,
   ) async {
     addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
-    final container = ProviderContainer();
+    final container = ProviderContainer(
+      overrides: [
+        driverSessionStoreProvider.overrideWithValue(MemorySessionStore()),
+      ],
+    );
     addTearDown(container.dispose);
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -224,6 +238,11 @@ void main() {
           addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
           final boundary = GlobalKey();
           Widget host(Widget child) => ProviderScope(
+            overrides: [
+              driverSessionStoreProvider.overrideWith(
+                (ref) => MemorySessionStore(),
+              ),
+            ],
             child: CupertinoApp(
               debugShowCheckedModeBanner: false,
               theme: zentryxTheme.copyWith(

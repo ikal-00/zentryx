@@ -7,13 +7,17 @@ import 'package:zentryx_mobile/design_system/zentryx_layout.dart';
 import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
 
 import '../application/driver_session.dart';
+import '../application/device_telemetry_controller.dart';
+import 'prepare_trip_screen.dart';
+import 'device_diagnostics_screen.dart';
+import 'widgets/device_status.dart';
 
 class DriverScreen extends ConsumerWidget {
   const DriverScreen({super.key});
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(driverSessionProvider);
+    if (!session.active) return const PrepareTripScreen();
     final muted = CupertinoDynamicColor.resolve(ZentryxColors.muted, context);
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
@@ -33,104 +37,25 @@ class DriverScreen extends ConsumerWidget {
                   child: ListView(
                     padding: ZentryxLayout.pagePadding,
                     children: [
-                      const Text(
-                        'Tu ruta, bajo control.',
-                        style: TextStyle(
-                          fontSize: 29,
-                          height: 1.1,
+                      Text(
+                        session.unit!.name,
+                        style: const TextStyle(
+                          fontSize: 28,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: -0.8,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          const SystemStatusBadge(
-                            status: SystemStatus.syncing,
-                            label: 'Simulación local',
-                          ),
-                          SystemStatusBadge(
-                            status: session.active
-                                ? SystemStatus.connected
-                                : SystemStatus.disconnected,
-                            label: session.active
-                                ? 'Conexión simulada'
-                                : 'Sin conexión al chip',
-                          ),
-                        ],
+                      const SizedBox(height: 6),
+                      Text(
+                        session.unit!.line,
+                        style: TextStyle(fontSize: 15, color: muted),
                       ),
-                      const SizedBox(height: 24),
-                      ZentryxCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: CupertinoDynamicColor.resolve(
-                                      ZentryxColors.selection,
-                                      context,
-                                    ),
-                                    borderRadius: ZentryxLayout.controlRadius,
-                                  ),
-                                  child: Icon(
-                                    CupertinoIcons.bus,
-                                    size: 28,
-                                    color: CupertinoDynamicColor.resolve(
-                                      ZentryxColors.action,
-                                      context,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Unidad 01',
-                                        style: TextStyle(
-                                          fontSize: 23,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Mexibús Línea 2',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: muted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-                            _DetailRow(
-                              label: 'Estado GPS',
-                              value: session.active
-                                  ? 'Activo · simulado'
-                                  : 'Pendiente de chip',
-                            ),
-                            const SizedBox(height: 12),
-                            _DetailRow(
-                              label: 'Conexión',
-                              value: session.active
-                                  ? 'Local · sin envío real'
-                                  : 'Sin conectar',
-                            ),
-                            const SizedBox(height: 12),
-                            const _DetailRow(
-                              label: 'Última actualización GPS',
-                              value: 'Sin telemetría real',
-                            ),
-                          ],
+                      const SizedBox(height: 16),
+                      Consumer(
+                        builder: (context, ref, _) => Align(
+                          alignment: Alignment.centerLeft,
+                          child: TelemetrySourceBadge(
+                            telemetry: ref.watch(deviceTelemetryProvider),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -138,150 +63,121 @@ class DriverScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'RECORRIDO',
-                              style: TextStyle(
-                                fontSize: 11,
-                                letterSpacing: 1.4,
-                                fontWeight: FontWeight.w700,
-                                color: muted,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
                             Semantics(
                               liveRegion: true,
-                              child: Text(
-                                session.active
-                                    ? 'Recorrido activo'
-                                    : 'Tu recorrido comienza aquí',
-                                style: const TextStyle(
+                              child: const Text(
+                                'Recorrido activo',
+                                style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.5,
                                 ),
                               ),
                             ),
                             const SizedBox(height: 12),
-                            if (session.active) ...[
-                              TimeLabel(
-                                builder: (now) {
-                                  final seconds = now
-                                      .difference(session.startedAt!)
-                                      .inSeconds
-                                      .clamp(0, 999999);
-                                  final hours = seconds ~/ 3600;
-                                  final minutes = (seconds ~/ 60) % 60;
-                                  final clock =
-                                      '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
-                                  return Semantics(
-                                    label: 'Tiempo de recorrido: $clock',
-                                    child: ExcludeSemantics(
-                                      child: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          clock,
-                                          maxLines: 1,
-                                          softWrap: false,
-                                          style: const TextStyle(
-                                            fontSize: 40,
-                                            fontWeight: FontWeight.w600,
-                                            letterSpacing: -1,
-                                            fontFeatures: [
-                                              FontFeature.tabularFigures(),
-                                            ],
-                                          ),
+                            TimeLabel(
+                              builder: (now) {
+                                final seconds = now
+                                    .difference(session.startedAt!)
+                                    .inSeconds
+                                    .clamp(0, 9999999);
+                                final clock =
+                                    '${(seconds ~/ 3600).toString().padLeft(2, '0')}:${((seconds ~/ 60) % 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
+                                return Semantics(
+                                  label: 'Tiempo de recorrido: $clock',
+                                  child: ExcludeSemantics(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        clock,
+                                        maxLines: 1,
+                                        softWrap: false,
+                                        style: const TextStyle(
+                                          fontSize: 44,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: -1,
+                                          fontFeatures: [
+                                            FontFeature.tabularFigures(),
+                                          ],
                                         ),
                                       ),
                                     ),
-                                  );
-                                },
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                            ZentryxPrimaryButton(
+                              label: session.busy
+                                  ? 'Guardando…'
+                                  : 'Finalizar recorrido',
+                              icon: CupertinoIcons.stop_fill,
+                              onPressed: session.canEdit
+                                  ? () => _stop(context, ref)
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final device = ref.watch(deviceTelemetryProvider);
+                          return device.unit.id == session.unit!.id
+                              ? const DeviceStatusPanel()
+                              : const SystemStatusCard(
+                                  status: SystemStatus.warning,
+                                  title: 'Dispositivo de otra unidad',
+                                  message: 'La fuente actual no corresponde al recorrido guardado. Revisa el diagnóstico antes de usar sus datos.',
+                                );
+                        },
+                      ),
+                      CupertinoButton(
+                        onPressed: () => showDeviceDiagnostics(context),
+                        child: const Text('Ver diagnóstico'),
+                      ),
+                      if (session.storageError != null) ...[
+                        SystemStatusCard(
+                          status: SystemStatus.error,
+                          title: 'Cambio sin guardar',
+                          message: session.storageError!,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                      if (session.lastIncident != null)
+                        ZentryxCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Último reporte',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                              const SizedBox(height: 12),
-                              const SystemStatusBadge(
-                                status: SystemStatus.connected,
-                                label: 'GPS activo · simulado',
+                              const SizedBox(height: 10),
+                              Text(session.lastIncident!.label),
+                              const SizedBox(height: 8),
+                              Text(
+                                _reportTime(session.reportedAt!),
+                                style: TextStyle(fontSize: 13, color: muted),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Enviando ubicación · simulación',
-                                style: TextStyle(fontSize: 13, color: muted),
-                              ),
-                              const SizedBox(height: 20),
-                              ZentryxPrimaryButton(
-                                label: 'Finalizar recorrido',
-                                icon: CupertinoIcons.stop_fill,
-                                onPressed: () => _stop(context, ref),
-                              ),
-                            ] else ...[
-                              Text(
-                                'Activa una sesión de prueba para conocer los controles.',
+                                'Reporte registrado localmente. Sin envío al servidor.',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 12,
                                   height: 1.4,
                                   color: muted,
                                 ),
                               ),
-                              const SizedBox(height: 20),
-                              ZentryxPrimaryButton(
-                                label: 'Iniciar recorrido',
-                                icon: CupertinoIcons.play_fill,
-                                onPressed: () {
-                                  HapticFeedback.mediumImpact();
-                                  ref
-                                      .read(driverSessionProvider.notifier)
-                                      .start();
-                                },
-                              ),
                             ],
-                          ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      ZentryxCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Incidencias',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Reporta en dos toques. Hazlo con la unidad detenida.',
-                              style: TextStyle(
-                                fontSize: 13,
-                                height: 1.4,
-                                color: muted,
-                              ),
-                            ),
-                            if (session.lastIncident != null) ...[
-                              const SizedBox(height: 14),
-                              Semantics(
-                                liveRegion: true,
-                                child: SystemStatusBadge(
-                                  status: SystemStatus.connected,
-                                  label:
-                                      'Último incidente: ${session.lastIncident!.label}',
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              TimeLabel(
-                                builder: (now) => Text(
-                                  updatedAgo(session.reportedAt, now),
-                                  style: TextStyle(fontSize: 12, color: muted),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
                       const SizedBox(height: 20),
                       Text(
-                        'Modo de prueba: no envía ubicación ni reportes. La sesión se conserva al volver al inicio y se borra al cerrar la app.',
+                        'El recorrido se recuperará al volver a abrir la app. Reporta únicamente con la unidad detenida.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,
@@ -323,7 +219,9 @@ class DriverScreen extends ConsumerWidget {
                             context,
                           ),
                           borderRadius: ZentryxLayout.controlRadius,
-                          onPressed: () => _report(context, ref),
+                          onPressed: session.canEdit
+                              ? () => _report(context, ref)
+                              : null,
                           child: Text(
                             'Reportar incidente',
                             textAlign: TextAlign.center,
@@ -348,6 +246,11 @@ class DriverScreen extends ConsumerWidget {
     );
   }
 
+  String _reportTime(DateTime value) {
+    final local = value.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')} · ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
   Future<void> _report(BuildContext context, WidgetRef ref) async {
     HapticFeedback.selectionClick();
     final incident = await showCupertinoModalPopup<IncidentType>(
@@ -355,7 +258,7 @@ class DriverScreen extends ConsumerWidget {
       builder: (sheetContext) => CupertinoActionSheet(
         title: const Text('Reportar incidente'),
         message: const Text(
-          'Selecciona el tipo. Se registrará solo en esta sesión.',
+          'Se guardará en este dispositivo. No se enviará al servidor.',
         ),
         actions: [
           for (final type in IncidentType.values)
@@ -371,8 +274,10 @@ class DriverScreen extends ConsumerWidget {
       ),
     );
     if (incident == null || !context.mounted) return;
-    ref.read(driverSessionProvider.notifier).report(incident);
-    HapticFeedback.lightImpact();
+    final saved = await ref
+        .read(driverSessionProvider.notifier)
+        .report(incident);
+    if (saved) HapticFeedback.lightImpact();
   }
 
   Future<void> _stop(BuildContext context, WidgetRef ref) async {
@@ -381,7 +286,7 @@ class DriverScreen extends ConsumerWidget {
       builder: (dialogContext) => CupertinoAlertDialog(
         title: const Text('¿Finalizar recorrido?'),
         content: const Text(
-          'El temporizador se detendrá. Tus reportes locales se conservan durante esta sesión.',
+          'El temporizador se detendrá. El último reporte seguirá guardado localmente.',
         ),
         actions: [
           CupertinoDialogAction(
@@ -397,48 +302,8 @@ class DriverScreen extends ConsumerWidget {
       ),
     );
     if (confirmed == true && context.mounted) {
-      ref.read(driverSessionProvider.notifier).stop();
+      await ref.read(driverSessionProvider.notifier).stop();
       HapticFeedback.selectionClick();
     }
   }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final title = Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          color: CupertinoDynamicColor.resolve(ZentryxColors.muted, context),
-        ),
-      );
-      final detail = Text(
-        value,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-      );
-      if (MediaQuery.textScalerOf(context).scale(13) > 18 ||
-          constraints.maxWidth < 280) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [title, const SizedBox(height: 4), detail],
-        );
-      }
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: title),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Align(alignment: Alignment.centerRight, child: detail),
-          ),
-        ],
-      );
-    },
-  );
 }
