@@ -8,7 +8,6 @@ from werkzeug.exceptions import HTTPException
 
 from .routes import (
     alerts_blueprint,
-    incidents_blueprint,
     health_blueprint,
     telemetry_blueprint,
     transit_blueprint,
@@ -38,7 +37,6 @@ def create_app(pool=None) -> Flask:
     app.register_blueprint(vehicles_blueprint)
     app.register_blueprint(telemetry_blueprint)
     app.register_blueprint(alerts_blueprint)
-    app.register_blueprint(incidents_blueprint)
 
     @app.errorhandler(AuthenticationError)
     def unauthorized(error):

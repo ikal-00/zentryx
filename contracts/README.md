@@ -9,7 +9,6 @@ La interfaz pública es HTTP `/v1`; los imports Python y tablas son internos.
 | Unidades | GET `/v1/vehicles`, detalle | Posición, estado y navegación |
 | Telemetría | POST `/v1/telemetry`, auth Device | 202, aceptación idempotente |
 | Alertas | GET `/v1/alerts`, filtros opcionales | Alertas ordenadas |
-| Incidentes | POST `/v1/incidents`, auth Driver | 201, identidad y conductor |
 
 [api_v1.md](api_v1.md) define campos, respuestas y errores. [telemetry_v1.json](telemetry_v1.json) es un ejemplo, no un JSON Schema ni un evento para reenviar con fecha antigua.
 

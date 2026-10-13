@@ -7,11 +7,9 @@ import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({
     required this.onPassenger,
-    required this.onDriver,
     super.key,
   });
   final VoidCallback onPassenger;
-  final VoidCallback onDriver;
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +127,7 @@ class WelcomeScreen extends StatelessWidget {
                         const _LineHero(),
                         const SizedBox(height: 28),
                         Text(
-                          '¿CÓMO VIAJAS HOY?',
+                          'MOVILIDAD EN TIEMPO REAL',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -139,18 +137,11 @@ class WelcomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         _ModeCard(
-                          title: 'Soy pasajero',
-                          subtitle: 'Consulta unidades, estaciones y tiempos de llegada',
+                          title: 'Ver mapa y unidades',
+                          subtitle: 'Consulta estaciones, tiempos de llegada y seguimiento en vivo',
                           icon: CupertinoIcons.map_fill,
                           primary: true,
                           onPressed: onPassenger,
-                        ),
-                        const SizedBox(height: 12),
-                        _ModeCard(
-                          title: 'Soy conductor',
-                          subtitle: 'Inicia recorridos y reporta incidencias',
-                          icon: CupertinoIcons.person_crop_rectangle,
-                          onPressed: onDriver,
                         ),
                         const SizedBox(height: 24),
                         Center(

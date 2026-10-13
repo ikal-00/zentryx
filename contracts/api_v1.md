@@ -1,6 +1,6 @@
 # Zentryx API Contract v1
 
-Contrato entre app, backend, GPS y la futura interfaz de conductor.
+Contrato entre app móvil de pasajero, backend y telemetría GPS.
 
 ## Convenciones generales
 
@@ -201,45 +201,9 @@ Parámetros opcionales: `route_id`, `vehicle_id`. Solo devuelve alertas activas;
 }
 ```
 
-## 6. Incidentes de conductor
-
-### POST `/v1/incidents`
-
-Los incidentes ya no usan la credencial física del GPS. Requieren un conductor activo asignado a la unidad.
-
-Headers:
-
-```text
-Content-Type: application/json
-Authorization: Driver <token>
-```
-
-Body:
-
-```json
-{
-  "vehicle_id":"unit-01",
-  "type":"traffic",
-  "description":"Congestión intensa en el corredor",
-  "position":{"lat":19.62211,"lon":-99.16299},
-  "observed_at":"2026-09-25T20:35:00Z"
-}
-```
-
-Respuesta 201:
-
-```json
-{
-  "incident_id":"incident-a1b2c3d4e5f6",
-  "driver_id":"driver-01",
-  "created":true
-}
-```
-
-## 7. Códigos relevantes
+## 6. Códigos relevantes
 
 - 200: lectura correcta
-- 201: incidente creado
 - 202: telemetría aceptada/duplicada
 - 400: JSON o Content-Type inválido
 - 401: credencial inválida
@@ -248,8 +212,8 @@ Respuesta 201:
 - 500: error interno
 - 503: dependencia no disponible / backend no ready
 
-## 8. Tiempo real
+## 7. Tiempo real
 
-El MVP usa REST. Futuro WebSocket `/v1/realtime` con eventos de posición, ocupación, alertas e incidentes.
+El MVP usa REST. Futuro WebSocket `/v1/realtime` con eventos de posición, ocupación y alertas.
 
 Este archivo es el contrato funcional v1. Cambios incompatibles requieren una nueva versión.

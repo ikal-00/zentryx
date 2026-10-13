@@ -23,10 +23,6 @@ def parse_device_authorization(header: str | None) -> str:
     return _parse_authorization(header, "Device")
 
 
-def parse_driver_authorization(header: str | None) -> str:
-    return _parse_authorization(header, "Driver")
-
-
 def hash_token(token: str) -> str:
     digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
     return f"sha256:{digest}"

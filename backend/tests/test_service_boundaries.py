@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from backend.app import create_app
-from backend.services import incidents, telemetry
+from backend.services import telemetry
 from backend.services.errors import AssignmentNotFound, AuthenticationError
 from backend.services.simulation import RouteWalker
 
@@ -36,20 +36,6 @@ class ServiceBoundaryTests(unittest.TestCase):
             with self.assertRaises(AuthenticationError):
                 telemetry.accept_telemetry(object(), payload, "fixture")
             write.assert_not_called()
-
-    def test_incident_returns_created_identity_after_authorized_write(self):
-        payload = {"vehicle_id": "unit-test"}
-        pool = object()
-        with (
-            patch.object(
-                incidents, "authenticate_driver_vehicle", return_value=("driver-test", None)
-            ),
-            patch.object(incidents.repository, "insert_incident") as write,
-        ):
-            result = incidents.report_incident(pool, payload, "fixture")
-            self.assertTrue(result["created"])
-            self.assertEqual(result["driver_id"], "driver-test")
-            write.assert_called_once_with(pool, payload, "driver-test", result["incident_id"])
 
     def test_service_errors_keep_http_status_and_json(self):
         app = create_app(pool=object())
