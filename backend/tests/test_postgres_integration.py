@@ -71,16 +71,6 @@ class PostgresIntegrationTests(unittest.TestCase):
                     """
                 )
                 cur.execute(
-                    "INSERT INTO drivers (driver_id, display_name, token_hash) VALUES (%s, %s, %s);",
-                    ("driver-01", "Driver Test", hash_token("driver-secret")),
-                )
-                cur.execute(
-                    """
-                    INSERT INTO driver_vehicle_assignments (driver_id, vehicle_id)
-                    VALUES ('driver-01', 'unit-01');
-                    """
-                )
-                cur.execute(
                     """
                     INSERT INTO alerts (
                         alert_id, route_id, type, message, severity, active
@@ -166,20 +156,6 @@ class PostgresIntegrationTests(unittest.TestCase):
             headers={"Authorization": "Device gps-secret"},
         )
         self.assertEqual(wrong_scheme.status_code, 401)
-
-        incident = self.client.post(
-            "/v1/incidents",
-            json={
-                "vehicle_id": "unit-01",
-                "type": "traffic",
-                "description": "Prueba",
-                "position": {"lat": 19.62, "lon": -99.16},
-                "observed_at": datetime.now(timezone.utc).isoformat(),
-            },
-            headers={"Authorization": "Driver driver-secret"},
-        )
-        self.assertEqual(incident.status_code, 201)
-        self.assertEqual(incident.get_json()["driver_id"], "driver-01")
 
     def test_real_http_simulator_to_frontend_adapters(self):
         import threading

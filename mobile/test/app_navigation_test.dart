@@ -11,18 +11,11 @@ import 'package:zentryx_mobile/core/network/api_client.dart';
 import 'package:zentryx_mobile/design_system/relative_time.dart';
 import 'package:zentryx_mobile/design_system/system_status.dart';
 import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
-import 'package:zentryx_mobile/features/driver/application/driver_session.dart';
-import 'package:zentryx_mobile/features/driver/presentation/driver_screen.dart';
 import 'package:zentryx_mobile/features/transit/application/transit_controller.dart';
 import 'package:zentryx_mobile/features/transit/data/transit_repository.dart';
 import 'package:zentryx_mobile/features/transit/presentation/home_screen.dart';
 import 'package:zentryx_mobile/features/transit/presentation/widgets/live_status_indicator.dart';
 import 'package:zentryx_mobile/features/welcome/presentation/welcome_screen.dart';
-
-import 'package:zentryx_mobile/features/driver/data/driver_session_store.dart';
-import 'package:zentryx_mobile/features/driver/data/simulated_device_telemetry_source.dart';
-
-import 'driver_test_support.dart';
 
 import 'transit_ui_test.dart' show fixtureState, vehicle;
 
@@ -97,32 +90,10 @@ void main() {
     expect(updatedAgo(null, now), 'Sin actualización');
   });
 
-  test(
-    'driver session is local, idempotent and keeps reports after stopping',
-    () async {
-      final controller = DriverSessionController(MemorySessionStore());
-      await controller.ready;
-      addTearDown(controller.dispose);
-      await controller.start(SimulatedDeviceTelemetrySource.unit);
-      final start = controller.state.startedAt;
-      await controller.start(SimulatedDeviceTelemetrySource.unit);
-      expect(controller.state.startedAt, start);
-      await controller.report(IncidentType.traffic);
-      await controller.stop();
-      expect(controller.state.active, isFalse);
-      expect(controller.state.lastIncident, IncidentType.traffic);
-      expect(controller.state.reportCount, 1);
-    },
-  );
-
   testWidgets(
     'welcome is immediate and lifecycle does not initialize transit',
     (tester) async {
-      final container = ProviderContainer(
-        overrides: [
-          driverSessionStoreProvider.overrideWithValue(MemorySessionStore()),
-        ],
-      );
+      final container = ProviderContainer();
       addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
       try {
         await tester.pumpWidget(
@@ -138,11 +109,6 @@ void main() {
         tester.binding.handleAppLifecycleStateChanged(
           AppLifecycleState.resumed,
         );
-        expect(container.exists(transitControllerProvider), isFalse);
-        await _reveal(tester, find.text('Soy conductor'));
-        await tester.tap(find.text('Soy conductor'));
-        await tester.pumpAndSettle();
-        expect(find.byType(DriverScreen), findsOneWidget);
         expect(container.exists(transitControllerProvider), isFalse);
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
@@ -164,8 +130,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await _reveal(tester, find.text('Soy pasajero'));
-      await tester.tap(find.text('Soy pasajero'));
+      await _reveal(tester, find.text('Ver mapa y unidades'));
+      await tester.tap(find.text('Ver mapa y unidades'));
       await tester.pumpAndSettle();
       expect(find.byType(HomeScreen), findsOneWidget);
       expect(find.text('Modo pasajero'), findsOneWidget);
@@ -176,69 +142,10 @@ void main() {
     },
   );
 
-  testWidgets('driver start, report, cancel, return and finish flow', (
-    tester,
-  ) async {
-    addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
-    final container = ProviderContainer(
-      overrides: [
-        driverSessionStoreProvider.overrideWithValue(MemorySessionStore()),
-      ],
-    );
-    try {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const ZentryxApp(),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await _reveal(tester, find.text('Soy conductor'));
-      await tester.tap(find.text('Soy conductor'));
-      await tester.pumpAndSettle();
-      await _reveal(tester, find.text('Iniciar recorrido'));
-      await tester.tap(find.text('Iniciar recorrido'));
-      await tester.pumpAndSettle();
-      expect(find.text('Recorrido activo'), findsOneWidget);
-      final started = container.read(driverSessionProvider).startedAt;
-      await _reveal(tester, find.text('Reportar incidente'));
-      await tester.tap(find.text('Reportar incidente'));
-      await tester.pumpAndSettle();
-      expect(find.text('Estación cerrada'), findsOneWidget);
-      await tester.tap(find.text('Cancelar'));
-      await tester.pumpAndSettle();
-      expect(container.read(driverSessionProvider).reportCount, 0);
-      await tester.tap(find.text('Reportar incidente'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Tráfico'));
-      await tester.pumpAndSettle();
-      await _reveal(tester, find.text('Registrado localmente: Tráfico'));
-      expect(find.text('Registrado localmente: Tráfico'), findsOneWidget);
-      expect(container.read(driverSessionProvider).reportCount, 1);
-      await tester.tap(find.byType(CupertinoNavigationBarBackButton));
-      await tester.pumpAndSettle();
-      await _reveal(tester, find.text('Soy conductor'));
-      await tester.tap(find.text('Soy conductor'));
-      await tester.pumpAndSettle();
-      expect(container.read(driverSessionProvider).startedAt, started);
-      await _reveal(tester, find.text('Finalizar recorrido'));
-      await tester.tap(find.text('Finalizar recorrido'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Finalizar'));
-      await tester.pumpAndSettle();
-      expect(container.read(driverSessionProvider).active, isFalse);
-      expect(container.read(driverSessionProvider).reportCount, 1);
-      expect(tester.takeException(), isNull);
-    } finally {
-      await tester.pumpWidget(const SizedBox.shrink());
-      container.dispose();
-    }
-  });
-
   for (final width in [360.0, 390.0, 430.0]) {
     for (final scale in [1.0, 2.0]) {
       for (final brightness in Brightness.values) {
-        testWidgets('welcome and driver fit $width scale $scale $brightness', (
+        testWidgets('welcome fits $width scale $scale $brightness', (
           tester,
         ) async {
           tester.view.physicalSize = Size(width, 844);
@@ -248,11 +155,6 @@ void main() {
           addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
           final boundary = GlobalKey();
           Widget host(Widget child) => ProviderScope(
-            overrides: [
-              driverSessionStoreProvider.overrideWith(
-                (ref) => MemorySessionStore(),
-              ),
-            ],
             child: CupertinoApp(
               debugShowCheckedModeBanner: false,
               theme: zentryxTheme.copyWith(
@@ -291,7 +193,7 @@ void main() {
             ),
           );
           await tester.pumpWidget(
-            host(WelcomeScreen(onPassenger: () {}, onDriver: () {})),
+            host(WelcomeScreen(onPassenger: () {})),
           );
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
@@ -302,35 +204,7 @@ void main() {
               'welcome-${width.toInt()}-$scale-${brightness.name}',
             );
           }
-          await _reveal(tester, find.text('Soy conductor'));
-          expect(tester.takeException(), isNull);
-          await tester.pumpWidget(host(const DriverScreen()));
-          await tester.pumpAndSettle();
-          if (const bool.fromEnvironment('ZENTRYX_CAPTURE_REVIEW')) {
-            await _capture(
-              tester,
-              boundary,
-              'driver-${width.toInt()}-$scale-${brightness.name}',
-            );
-          }
-          await _reveal(tester, find.text('Iniciar recorrido'));
-          await tester.tap(find.text('Iniciar recorrido'));
-          await tester.pumpAndSettle();
-          await _reveal(tester, find.text('Recorrido activo'));
-          if (const bool.fromEnvironment('ZENTRYX_CAPTURE_REVIEW')) {
-            await _capture(
-              tester,
-              boundary,
-              'driver-active-${width.toInt()}-$scale-${brightness.name}',
-            );
-          }
-          await _reveal(tester, find.text('Reportar incidente'));
-          await tester.tap(find.text('Reportar incidente'));
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
-          await tester.tap(find.text('Accidente'));
-          await tester.pumpAndSettle();
-          await _reveal(tester, find.text('Registrado localmente: Accidente'));
+          await _reveal(tester, find.text('Ver mapa y unidades'));
           expect(tester.takeException(), isNull);
         });
       }
@@ -369,12 +243,7 @@ Future<void> _reveal(WidgetTester tester, Finder target) async {
     await tester.scrollUntilVisible(
       target,
       180,
-      scrollable: find
-          .descendant(
-            of: find.byType(DriverScreen),
-            matching: find.byType(Scrollable),
-          )
-          .first,
+      scrollable: find.byType(Scrollable).first,
       maxScrolls: 30,
     );
   } else {

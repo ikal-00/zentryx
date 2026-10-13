@@ -1,4 +1,4 @@
-"""Authenticate active devices and assigned drivers."""
+"""Authenticate active devices."""
 
 from __future__ import annotations
 from ..auth import verify_token
@@ -20,21 +20,3 @@ def authenticate_vehicle_device(
     if not verify_token(row[1], token):
         return None, "invalid_authorization"
     return str(row[0]), None
-
-
-def authenticate_driver_vehicle(
-    pool,
-    *,
-    vehicle_id: str,
-    token: str,
-) -> tuple[str | None, str | None]:
-    """Authenticate an active driver currently assigned to the requested vehicle."""
-    rows = identities.driver_assignments(pool, vehicle_id)
-
-    if not rows:
-        return None, "driver_or_vehicle_not_found"
-
-    for row in rows:
-        if row[2] and row[3] and row[4] and verify_token(row[1], token):
-            return str(row[0]), None
-    return None, "invalid_authorization"

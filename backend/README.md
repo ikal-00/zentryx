@@ -76,7 +76,6 @@ GET  /v1/vehicles
 GET  /v1/vehicles/{vehicle_id}
 POST /v1/telemetry
 GET  /v1/alerts
-POST /v1/incidents
 ```
 
 `GET /v1/vehicles/{id}` deriva online/offline, estabiliza el sentido con historial y calcula próxima estación/ETA en backend.
@@ -87,7 +86,6 @@ POST /v1/incidents
 
 ```text
 Authorization: Device <token>
-Authorization: Driver <token>
 ```
 
 Los tokens persistidos se guardan como SHA-256.

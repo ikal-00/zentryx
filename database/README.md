@@ -28,6 +28,7 @@ psql "$POSTGRES_URL" -f database/schema.sql
 ```bash
 psql "$POSTGRES_URL" -f database/migrations/002_api_alignment.sql
 psql "$POSTGRES_URL" -f database/migrations/003_runtime_hardening.sql
+psql "$POSTGRES_URL" -f database/migrations/004_purge_driver_schema.sql
 ```
 
 No reescribas migraciones que ya pudieron ejecutarse en el servidor compartido.
@@ -46,7 +47,7 @@ El seed usa `app/assets/routes/` y hace upsert de ruta, estaciones y orden.
 
 ## Tokens
 
-`devices.token_hash` y `drivers.token_hash` usan `sha256:<64 caracteres hexadecimales>`.
+`devices.token_hash` usa `sha256:<64 caracteres hexadecimales>`.
 
 ## Pruebas
 

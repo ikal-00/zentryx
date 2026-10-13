@@ -143,43 +143,6 @@ CREATE TABLE IF NOT EXISTS vehicles (
 CREATE INDEX IF NOT EXISTS idx_vehicles_route_id
     ON vehicles(route_id);
 
--- =========================================================
--- CONDUCTORES
--- =========================================================
-
-CREATE TABLE IF NOT EXISTS drivers (
-    driver_id TEXT PRIMARY KEY,
-    display_name TEXT,
-    token_hash TEXT NOT NULL,
-    active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-COMMENT ON COLUMN drivers.token_hash IS
-    'SHA-256 driver session/API token hash. Canonical format: sha256:<64 lowercase hex chars>.';
-
-CREATE TABLE IF NOT EXISTS driver_vehicle_assignments (
-    driver_id TEXT NOT NULL,
-    vehicle_id TEXT NOT NULL,
-    active BOOLEAN NOT NULL DEFAULT TRUE,
-    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    PRIMARY KEY (driver_id, vehicle_id),
-
-    CONSTRAINT fk_driver_vehicle_driver
-        FOREIGN KEY (driver_id)
-        REFERENCES drivers(driver_id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_driver_vehicle_vehicle
-        FOREIGN KEY (vehicle_id)
-        REFERENCES vehicles(vehicle_id)
-        ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_driver_vehicle_active
-    ON driver_vehicle_assignments(vehicle_id, active);
 
 -- =========================================================
 -- TELEMETRÍA GPS
@@ -268,13 +231,12 @@ CREATE INDEX IF NOT EXISTS idx_alerts_active_created_at
     ON alerts(active, created_at DESC);
 
 -- =========================================================
--- INCIDENTES REPORTADOS POR CONDUCTOR
+-- INCIDENTES DE OPERACIÓN
 -- =========================================================
 
 CREATE TABLE IF NOT EXISTS incidents (
     incident_id TEXT PRIMARY KEY,
     vehicle_id TEXT NOT NULL,
-    driver_id TEXT,
 
     type TEXT NOT NULL,
     description TEXT,
@@ -287,16 +249,8 @@ CREATE TABLE IF NOT EXISTS incidents (
     CONSTRAINT fk_incidents_vehicle
         FOREIGN KEY (vehicle_id)
         REFERENCES vehicles(vehicle_id)
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_incidents_driver
-        FOREIGN KEY (driver_id)
-        REFERENCES drivers(driver_id)
-        ON DELETE SET NULL
+        ON DELETE RESTRICT
 );
-
-ALTER TABLE incidents
-    ADD COLUMN IF NOT EXISTS driver_id TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_incidents_position_gist
     ON incidents USING GIST (position);

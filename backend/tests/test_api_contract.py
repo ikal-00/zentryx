@@ -5,7 +5,6 @@ from backend.API_Global import create_app
 from backend.api_utils import (
     PayloadValidationError,
     hash_device_token,
-    parse_driver_authorization,
     validate_telemetry_payload,
     verify_device_token,
 )
@@ -31,7 +30,6 @@ class ApiContractTests(unittest.TestCase):
             "/v1/vehicles/<string:vehicle_id>",
             "/v1/telemetry",
             "/v1/alerts",
-            "/v1/incidents",
         }
         self.assertTrue(expected.issubset(rules))
 
@@ -107,11 +105,6 @@ class ApiContractTests(unittest.TestCase):
         self.assertNotIn(token, stored)
         self.assertTrue(verify_device_token(stored, token))
         self.assertFalse(verify_device_token(stored, "wrong-token"))
-
-    def test_driver_authorization_uses_separate_scheme(self):
-        self.assertEqual(parse_driver_authorization("Driver abc"), "abc")
-        with self.assertRaises(PayloadValidationError):
-            parse_driver_authorization("Device abc")
 
     def test_navigation_uses_history_and_keeps_eta_when_stopped(self):
         route = [(19.0, -99.0), (19.0, -98.99)]
