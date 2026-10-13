@@ -215,10 +215,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                const Text('© OpenStreetMap contributors',
-                    style: TextStyle(fontSize: 10, color: ZentryxColors.text,
-                        backgroundColor: ZentryxColors.attributionSurface)),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: ZentryxColors.attributionSurface,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '© OpenStreetMap contributors',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                      color: CupertinoDynamicColor.resolve(ZentryxColors.muted, context),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

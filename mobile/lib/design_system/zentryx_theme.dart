@@ -1,67 +1,92 @@
 import 'package:flutter/cupertino.dart';
 
-/// All UI, map and vehicle paint colors live here. Brand reds are independent
-/// of status colors; map tokens stay fixed because OSM tiles remain light.
+/// Tier-1 Enterprise Design System Colors for Zentryx Passenger Experience.
+///
+/// Refined around the authentic Mexibús Línea 2 crimson-red identity.
+/// Strictly non-neon, high-contrast, optimized for both light and deep-dark modes.
 class ZentryxColors {
   const ZentryxColors._();
 
-  static const brand = Color(0xFFE63E5C);
-  static const brandStrong = Color(0xFFC92745);
-  static const brandDark = Color(0xFF8E1D34);
-  static const brandSoft = Color(0xFFFCE8EC);
+  // --- Core Brand Identity (Tier-1 Crimson Heritage, strictly non-neon) ---
+  static const brand = Color(0xFFD31034);        // Cardinal red, high energy, elegant
+  static const brandStrong = Color(0xFFB50D2B);  // Deep executive crimson for primary CTAs
+  static const brandDark = Color(0xFF7A091D);    // Regal wine/burgundy for contrast accents
+  static const brandSoft = Color(0xFFFDEBED);    // Soft ruby mist for light highlights
+  static const brandSoftDark = Color(0xFF381018);// Muted wine dark backdrop
   static const white = Color(0xFFFFFFFF);
-  static const text = Color(0xFF1D1B1C);
+  static const black = Color(0xFF000000);
 
+  // --- Dynamic Surface & Typography Tokens (Uber-grade minimal neutrals) ---
   static const ink = CupertinoDynamicColor.withBrightness(
-    color: text,
-    darkColor: Color(0xFFF6F6F7),
+    color: Color(0xFF111217),      // Deep graphite black
+    darkColor: Color(0xFFF9FAFB),  // Pure soft white
   );
+  static const text = ink;
+
   static const muted = CupertinoDynamicColor.withBrightness(
-    color: Color(0xFF6F696B),
-    darkColor: Color(0xFFBDB6B9),
+    color: Color(0xFF5F6368),      // Crisp neutral secondary
+    darkColor: Color(0xFF9CA3AF),  // Balanced low-glare secondary
   );
+
+  static const subtle = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFF8C9099),      // Tertiary helper labels
+    darkColor: Color(0xFF6B7280),
+  );
+
   static const paper = CupertinoDynamicColor.withBrightness(
-    color: Color(0xFFF6F6F7),
-    darkColor: Color(0xFF151315),
+    color: Color(0xFFF8F9FA),      // Clean minimal off-white
+    darkColor: Color(0xFF0E0F12),  // Luxury obsidian backdrop
   );
+
   static const surface = CupertinoDynamicColor.withBrightness(
-    color: white,
-    darkColor: Color(0xFF231F21),
+    color: Color(0xFFFFFFFF),      // Pure white card
+    darkColor: Color(0xFF18191E),  // Deep charcoal card
   );
+
+  static const surfaceElevated = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFFFFFFFF),
+    darkColor: Color(0xFF22242B),  // Elevated card for modals & sheets
+  );
+
   static const line = CupertinoDynamicColor.withBrightness(
-    color: Color(0xFFE6E1E3),
-    darkColor: Color(0xFF42393D),
+    color: Color(0xFFE5E7EB),      // Subtle hairline border
+    darkColor: Color(0xFF282A33),
   );
-  // Stronger than brand for small text on white; lighter on dark surfaces.
+
   static const action = CupertinoDynamicColor.withBrightness(
     color: brandStrong,
-    darkColor: Color(0xFFFF8BA0),
-  );
-  static const selection = CupertinoDynamicColor.withBrightness(
-    color: brandSoft,
-    darkColor: Color(0xFF491F2A),
-  );
-  static const onSelection = CupertinoDynamicColor.withBrightness(
-    color: brandDark,
-    darkColor: Color(0xFFFFCED8),
+    darkColor: Color(0xFFFF4D67),  // Warm ruby highlight on dark
   );
 
-  // Semantic status colors: never alias these to brand red.
+  static const selection = CupertinoDynamicColor.withBrightness(
+    color: brandSoft,
+    darkColor: Color(0xFF381018),
+  );
+
+  static const onSelection = CupertinoDynamicColor.withBrightness(
+    color: brandDark,
+    darkColor: Color(0xFFFFBAC5),
+  );
+
+  // --- Semantic Status Indicators (Strictly balanced, never neon) ---
   static const success = CupertinoDynamicColor.withBrightness(
-    color: Color(0xFF1C7041),
-    darkColor: Color(0xFF73D6A0),
+    color: Color(0xFF0F7644),      // Rich forest emerald
+    darkColor: Color(0xFF34D399),
   );
+
   static const warning = CupertinoDynamicColor.withBrightness(
-    color: Color(0xFF8A5700),
-    darkColor: Color(0xFFF4C56A),
+    color: Color(0xFFB45309),      // Warm amber ochre
+    darkColor: Color(0xFFFBBF24),
   );
+
   static const danger = CupertinoDynamicColor.withBrightness(
-    color: Color(0xFFB42318),
-    darkColor: Color(0xFFFFA18F),
+    color: Color(0xFFB91C1C),      // Urgent brick red
+    darkColor: Color(0xFFF87171),
   );
+
   static const info = CupertinoDynamicColor.withBrightness(
-    color: Color(0xFF245FAD),
-    darkColor: Color(0xFF91BEF8),
+    color: Color(0xFF1D4ED8),      // Sapphire royal blue
+    darkColor: Color(0xFF60A5FA),
   );
 
   static Color occupancy(String value) => switch (value.toLowerCase()) {
@@ -77,31 +102,37 @@ class ZentryxColors {
     _ => info,
   };
 
-  static const surfaceShadow = Color(0x171D1B1C);
-  static const markerShadow = Color(0x331D1B1C);
-  static const markShadow = Color(0x661D1B1C);
-  static const markHighlight = Color(0x33FFFFFF);
-  static const routeHalo = Color(0xF2FFFFFF);
+  // --- Map & Cartography Paint Tokens ---
+  static const surfaceShadow = Color(0x180D0E12);
+  static const markerShadow = Color(0x380D0E12);
+  static const markShadow = Color(0x500D0E12);
+  static const markHighlight = Color(0x40FFFFFF);
+
+  // Route styling: crisp double-cased track with outer casing and solid ruby core
+  static const routeHalo = Color(0xEEFFFFFF);
   static const routeBorder = brandDark;
   static const route = brand;
+
+  // Station styling: Uber-like pins
   static const stationBorder = brandStrong;
   static const stationSelected = brandStrong;
-  static const stationHalo = Color(0xE6FCE8EC);
-  static const stationNormalHalo = Color(0xBBFFFFFF);
-  static const attributionSurface = Color(0xEFFFFFFF);
+  static const stationHalo = Color(0xCCFDEBED);
+  static const stationNormalHalo = Color(0xDDFFFFFF);
+  static const attributionSurface = Color(0xF0FFFFFF);
 
-  // Original bus palette deliberately distinct from the red route.
-  static const busBody = Color(0xFF07566C);
-  static const busRoof = Color(0xFF29B8D5);
-  static const busOffline = Color(0xFF92AFB8);
-  static const busGlass = Color(0xFF083A4C);
-  static const busReflection = Color(0xFF6BD9ED);
-  static const busRoofHighlight = Color(0xFFA4EDFA);
-  static const busTailLight = Color(0xFFD94B37);
-  static const busOfflineBadge = Color(0xFFB66D00);
-  static const busShadow = Color(0x991D1B1C);
+  // Vehicle styling: Sleek executive transit bus
+  static const busBody = Color(0xFF14151B);         // Obsidian black graphite body
+  static const busRoof = brand;                     // Signature Mexibús red roof crown
+  static const busOffline = Color(0xFF6B7280);
+  static const busGlass = Color(0xFF242631);
+  static const busReflection = Color(0x40FFFFFF);
+  static const busRoofHighlight = Color(0xFFE8425F);
+  static const busTailLight = Color(0xFFEF4444);
+  static const busOfflineBadge = Color(0xFFD97706);
+  static const busShadow = Color(0x66000000);
 }
 
+/// Tier-1 Cupertino Theme Configuration.
 const zentryxTheme = CupertinoThemeData(
   primaryColor: ZentryxColors.action,
   primaryContrastingColor: ZentryxColors.white,
@@ -112,13 +143,25 @@ const zentryxTheme = CupertinoThemeData(
     textStyle: TextStyle(
       color: ZentryxColors.ink,
       fontSize: 16,
-      letterSpacing: -0.2,
+      letterSpacing: -0.3,
+    ),
+    navTitleTextStyle: TextStyle(
+      color: ZentryxColors.ink,
+      fontSize: 17,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.4,
     ),
     navLargeTitleTextStyle: TextStyle(
       color: ZentryxColors.ink,
       fontSize: 34,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -1.1,
+      fontWeight: FontWeight.w800,
+      letterSpacing: -1.2,
+    ),
+    actionTextStyle: TextStyle(
+      color: ZentryxColors.action,
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.2,
     ),
   ),
 );
