@@ -1,7 +1,7 @@
 """Small reusable views; data and map actions are supplied by views/passenger.py."""
 
 import flet as ft
-from ..theme import ACCENT, INK, LINE, MUTED, PAPER, SOFT, WHITE, shadow
+from ..theme import ACCENT, ACCENT_SOFT, BRAND_STRONG, INK, LINE, MUTED, PAPER, SOFT, WHITE, shadow
 
 
 def label(value, **kwargs):
@@ -33,7 +33,7 @@ def top_bar(on_route, line_label="L2", network_name="Mexibús"):
                             bgcolor=INK,
                             border_radius=12,
                             alignment=ft.Alignment.CENTER,
-                            content=ft.Icon(ft.Icons.NEAR_ME_ROUNDED, color=ACCENT, size=21),
+                            content=ft.Icon(ft.Icons.NEAR_ME_ROUNDED, color=BRAND_STRONG, size=21),
                         ),
                         ft.Text("zentryx", size=26, weight=ft.FontWeight.W_700, color=INK),
                     ],
@@ -43,7 +43,7 @@ def top_bar(on_route, line_label="L2", network_name="Mexibús"):
                         spacing=6,
                         tight=True,
                         controls=[
-                            pill(line_label, ACCENT),
+                            pill(line_label, BRAND_STRONG, WHITE),
                             ft.Text(network_name, color=INK, size=13),
                             ft.Icon(ft.Icons.KEYBOARD_ARROW_DOWN_ROUNDED, color=INK, size=18),
                         ],
@@ -123,7 +123,7 @@ class PassengerCard:
             weight=ft.FontWeight.W_600,
             max_lines=2,
         )
-        self.eta = ft.Text("—", size=30, color=INK, weight=ft.FontWeight.W_700)
+        self.eta = ft.Text("—", size=28, color=BRAND_STRONG, weight=ft.FontWeight.W_800)
         self.status = label("Esperando datos")
         self.occupancy = label("", visible=False)
         self.vehicle_view = ft.Column(
@@ -161,13 +161,13 @@ class PassengerCard:
                         ft.Container(
                             width=94,
                             padding=10,
-                            bgcolor=ACCENT,
+                            bgcolor=ACCENT_SOFT,
                             border_radius=16,
                             content=ft.Column(
                                 spacing=0,
                                 tight=True,
                                 controls=[
-                                    ft.Text("LLEGADA EST.", size=10, color=INK),
+                                    ft.Text("LLEGADA EST.", size=10, color=BRAND_STRONG, weight=ft.FontWeight.W_700),
                                     self.eta,
                                 ],
                             ),

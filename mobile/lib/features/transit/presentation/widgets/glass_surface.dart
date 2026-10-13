@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
+import 'package:zentryx_mobile/design_system/zentryx_layout.dart';
 import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
 
 class GlassSurface extends StatelessWidget {
@@ -23,24 +24,26 @@ class GlassSurface extends StatelessWidget {
     final line = CupertinoDynamicColor.resolve(ZentryxColors.line, context);
 
     return RepaintBoundary(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: surface.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(borderRadius),
-              border: Border.all(color: line.withValues(alpha: 0.86)),
-              boxShadow: const [
-                BoxShadow(
-                  color: ZentryxColors.surfaceShadow,
-                  blurRadius: 28,
-                  offset: Offset(0, 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(borderRadius),
+          boxShadow: ZentryxLayout.shadowSm,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(borderRadius),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: surface.withValues(alpha: 0.90),
+                borderRadius: BorderRadius.circular(borderRadius),
+                border: Border.all(
+                  color: line.withValues(alpha: 0.65),
+                  width: 0.75,
                 ),
-              ],
+              ),
+              child: Padding(padding: padding, child: child),
             ),
-            child: Padding(padding: padding, child: child),
           ),
         ),
       ),

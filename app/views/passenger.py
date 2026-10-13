@@ -69,7 +69,7 @@ def main(page: ft.Page):
     def highlight_station(name=None):
         for station_name, button in station_buttons.items():
             button.bgcolor = ACCENT if station_name == name else WHITE
-            button.icon_color = INK
+            button.icon_color = WHITE if station_name == name else INK
 
     def close_station(e=None):
         card.select_station()
