@@ -43,11 +43,8 @@ class PostgresIntegrationTests(unittest.TestCase):
                 cur.execute(
                     """
                     TRUNCATE TABLE
-                        incidents,
                         alerts,
                         telemetry,
-                        driver_vehicle_assignments,
-                        drivers,
                         vehicles,
                         devices,
                         route_stations,
@@ -145,15 +142,9 @@ class PostgresIntegrationTests(unittest.TestCase):
         self.assertEqual(alerts.get_json()["alerts"][0]["alert_id"], "alert-test")
 
         wrong_scheme = self.client.post(
-            "/v1/incidents",
-            json={
-                "vehicle_id": "unit-01",
-                "type": "traffic",
-                "description": "Prueba",
-                "position": {"lat": 19.62, "lon": -99.16},
-                "observed_at": datetime.now(timezone.utc).isoformat(),
-            },
-            headers={"Authorization": "Device gps-secret"},
+            "/v1/telemetry",
+            json=self.telemetry_payload(),
+            headers={"Authorization": "Bearer not-device"},
         )
         self.assertEqual(wrong_scheme.status_code, 401)
 

@@ -38,6 +38,18 @@ def create_app(pool=None) -> Flask:
     app.register_blueprint(telemetry_blueprint)
     app.register_blueprint(alerts_blueprint)
 
+    @app.after_request
+    def enable_cors(response):
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept"
+        return response
+
+    @app.route("/", defaults={"path": ""}, methods=["OPTIONS"])
+    @app.route("/<path:path>", methods=["OPTIONS"])
+    def options_handler(path=""):
+        return "", 204
+
     @app.errorhandler(AuthenticationError)
     def unauthorized(error):
         return {"error": str(error)}, 401

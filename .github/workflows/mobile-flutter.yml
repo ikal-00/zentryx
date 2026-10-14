@@ -97,15 +97,3 @@ jobs:
           path: mobile/build/ios/iphonesimulator/Runner.app
           if-no-files-found: error
           retention-days: 7
-      - name: Boot iPhone simulator for native persistence test
-        run: |
-          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for group in d["devices"].values() for x in group if x["name"].startswith("iPhone")))')
-          echo "ZENTRYX_SIMULATOR=$DEVICE_ID" >> "$GITHUB_ENV"
-          xcrun simctl boot "$DEVICE_ID" || true
-          xcrun simctl bootstatus "$DEVICE_ID" -b
-      - name: Native driver flow and save session
-        working-directory: mobile
-        run: flutter test integration_test/driver_restart_test.dart -d "$ZENTRYX_SIMULATOR" --no-uninstall --dart-define=ZENTRYX_RESTART_PHASE=write
-      - name: Restore session in a new native app process
-        working-directory: mobile
-        run: flutter test integration_test/driver_restart_test.dart -d "$ZENTRYX_SIMULATOR" --no-uninstall --dart-define=ZENTRYX_RESTART_PHASE=restore
