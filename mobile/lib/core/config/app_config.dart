@@ -3,7 +3,7 @@ class AppConfig {
 
   static const apiBaseUrl = String.fromEnvironment(
     'ZENTRYX_API_BASE_URL',
-    defaultValue: 'http://100.72.215.34:5000',
+    defaultValue: 'http://localhost:5050',
   );
 
   static const routeId = String.fromEnvironment(
