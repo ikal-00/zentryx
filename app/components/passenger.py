@@ -17,7 +17,50 @@ def pill(value, bgcolor=SOFT, color=INK):
     )
 
 
-def top_bar(on_route, line_label="L2", network_name="Mexibús"):
+def top_bar(on_route, line_label="L2", network_name="Mexibús", on_switch_driver=None):
+    right_controls = [
+        ft.TextButton(
+            content=ft.Row(
+                spacing=6,
+                tight=True,
+                controls=[
+                    pill(line_label, BRAND_STRONG, WHITE),
+                    ft.Text(network_name, color=INK, size=13),
+                    ft.Icon(ft.Icons.KEYBOARD_ARROW_DOWN_ROUNDED, color=INK, size=18),
+                ],
+            ),
+            tooltip="Ver estaciones del servicio",
+            on_click=on_route,
+            style=ft.ButtonStyle(padding=8),
+        ),
+    ]
+    if on_switch_driver is not None:
+        right_controls.append(
+            ft.OutlinedButton(
+                content=ft.Row(
+                    spacing=6,
+                    tight=True,
+                    controls=[
+                        ft.Icon(ft.Icons.BADGE_OUTLINED, color=BRAND_STRONG, size=15),
+                        ft.Text(
+                            "Modo Conductor",
+                            color=INK,
+                            size=12,
+                            weight=ft.FontWeight.W_700,
+                        ),
+                    ],
+                ),
+                tooltip="Cambiar a Modo Conductor (Autenticación, INE y Seguridad)",
+                on_click=lambda _: on_switch_driver(),
+                style=ft.ButtonStyle(
+                    bgcolor=WHITE,
+                    side=ft.BorderSide(1.2, LINE),
+                    shape=ft.RoundedRectangleBorder(radius=999),
+                    padding=ft.Padding.symmetric(horizontal=12, vertical=8),
+                ),
+            )
+        )
+
     return ft.Container(
         padding=ft.Padding.symmetric(horizontal=20, vertical=14),
         bgcolor=PAPER,
@@ -38,19 +81,11 @@ def top_bar(on_route, line_label="L2", network_name="Mexibús"):
                         ft.Text("zentryx", size=26, weight=ft.FontWeight.W_700, color=INK),
                     ],
                 ),
-                ft.TextButton(
-                    content=ft.Row(
-                        spacing=6,
-                        tight=True,
-                        controls=[
-                            pill(line_label, BRAND_STRONG, WHITE),
-                            ft.Text(network_name, color=INK, size=13),
-                            ft.Icon(ft.Icons.KEYBOARD_ARROW_DOWN_ROUNDED, color=INK, size=18),
-                        ],
-                    ),
-                    tooltip="Ver estaciones del servicio",
-                    on_click=on_route,
-                    style=ft.ButtonStyle(padding=8),
+                ft.Row(
+                    spacing=8,
+                    tight=True,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=right_controls,
                 ),
             ],
         ),

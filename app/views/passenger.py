@@ -33,7 +33,7 @@ def load_geography(route=None):
     return route, route_coordinates, route_points, stations
 
 
-def main(page: ft.Page):
+def main(page: ft.Page, on_switch_driver=None):
     configure(page)
 
     sources = create_sources(AppSettings.from_env())
@@ -293,6 +293,7 @@ def main(page: ft.Page):
             show_route,
             line_label=route.line_label,
             network_name=route.network_name,
+            on_switch_driver=on_switch_driver,
         )
     )
     dock = ft.Container(

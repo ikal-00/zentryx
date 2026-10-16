@@ -1,13 +1,13 @@
-"""Flet entrypoint: supports both `flet run app/main.py` and `python -m app.main`."""
+import sys
+from pathlib import Path
+import flet as ft
 
 if __package__ in (None, ""):
-    import sys
-    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from app.router import launch_app
+else:
+    from .router import launch_app
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-import flet as ft
-from app.views.passenger import main
 
 if __name__ == "__main__":
-    ft.run(main)
+    ft.run(launch_app)
