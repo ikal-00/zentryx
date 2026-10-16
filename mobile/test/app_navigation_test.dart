@@ -142,6 +142,60 @@ void main() {
     },
   );
 
+  testWidgets(
+    'driver mode on welcome runs data/INE verification and opens shared map with emergency SOS',
+    (tester) async {
+      addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            transitControllerProvider.overrideWith((ref) => _TransitFixture()),
+          ],
+          child: const ZentryxApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _reveal(tester, find.text('Modo conductor'));
+      await tester.tap(find.text('Modo conductor'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Verificación de Operador'), findsOneWidget);
+      await _reveal(tester, find.text('Folio 84021 · MEX-1234'));
+      await tester.tap(find.text('Folio 84021 · MEX-1234'));
+      await tester.pumpAndSettle();
+      expect(find.text('Operador Vigente y Asignado'), findsOneWidget);
+
+      await _reveal(tester, find.text('Continuar a Verificación de INE'));
+      await tester.tap(find.text('Continuar a Verificación de INE'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Toma una foto del anverso y reverso de tu INE'),
+        findsOneWidget,
+      );
+      final galleryButtons = find.text('Subir desde Galería');
+      await _reveal(tester, galleryButtons.first);
+      await tester.tap(galleryButtons.first);
+      await tester.pumpAndSettle();
+      await _reveal(tester, galleryButtons.last);
+      await tester.tap(galleryButtons.last);
+      await tester.pumpAndSettle();
+
+      await _reveal(tester, find.text('Verificar INE y Abrir Mapa de Unidad'));
+      await tester.tap(find.text('Verificar INE y Abrir Mapa de Unidad'));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HomeScreen), findsOneWidget);
+      expect(find.text('Modo conductor · MEX-1234'), findsOneWidget);
+      expect(
+        find.text('BOTÓN DE PÁNICO / EMERGENCIA SOS'),
+        findsOneWidget,
+      );
+    },
+  );
+
   for (final width in [360.0, 390.0, 430.0]) {
     for (final scale in [1.0, 2.0]) {
       for (final brightness in Brightness.values) {

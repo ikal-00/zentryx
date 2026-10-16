@@ -17,7 +17,48 @@ def pill(value, bgcolor=SOFT, color=INK):
     )
 
 
-def top_bar(on_route, line_label="L2", network_name="Mexibús", on_switch_driver=None):
+def top_bar(
+    on_route,
+    line_label="L2",
+    network_name="Mexibús",
+    on_switch_driver=None,
+    driver_session=None,
+    header_sos_button=None,
+    on_back_home=None,
+):
+    left_controls = []
+    if on_back_home is not None:
+        left_controls.append(
+            ft.IconButton(
+                icon=ft.Icons.ARROW_BACK_ROUNDED,
+                icon_color=INK,
+                icon_size=20,
+                tooltip="Volver al Inicio",
+                on_click=lambda _: on_back_home(),
+            )
+        )
+    left_controls.extend(
+        [
+            ft.Container(
+                width=36,
+                height=36,
+                bgcolor=INK,
+                border_radius=12,
+                alignment=ft.Alignment.CENTER,
+                content=ft.Icon(ft.Icons.NEAR_ME_ROUNDED, color=BRAND_STRONG, size=21),
+            ),
+            ft.Text("zentryx", size=26, weight=ft.FontWeight.W_700, color=INK),
+        ]
+    )
+    if driver_session is not None:
+        left_controls.append(
+            pill(
+                f"CONDUCTOR · {driver_session.unit_plate or 'MEX-1234'}",
+                "#0F7644",
+                WHITE,
+            )
+        )
+
     right_controls = [
         ft.TextButton(
             content=ft.Row(
@@ -34,7 +75,9 @@ def top_bar(on_route, line_label="L2", network_name="Mexibús", on_switch_driver
             style=ft.ButtonStyle(padding=8),
         ),
     ]
-    if on_switch_driver is not None:
+    if header_sos_button is not None:
+        right_controls.append(header_sos_button)
+    elif on_switch_driver is not None:
         right_controls.append(
             ft.OutlinedButton(
                 content=ft.Row(
@@ -69,17 +112,8 @@ def top_bar(on_route, line_label="L2", network_name="Mexibús", on_switch_driver
             controls=[
                 ft.Row(
                     spacing=10,
-                    controls=[
-                        ft.Container(
-                            width=36,
-                            height=36,
-                            bgcolor=INK,
-                            border_radius=12,
-                            alignment=ft.Alignment.CENTER,
-                            content=ft.Icon(ft.Icons.NEAR_ME_ROUNDED, color=BRAND_STRONG, size=21),
-                        ),
-                        ft.Text("zentryx", size=26, weight=ft.FontWeight.W_700, color=INK),
-                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=left_controls,
                 ),
                 ft.Row(
                     spacing=8,

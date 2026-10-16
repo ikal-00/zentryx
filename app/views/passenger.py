@@ -33,7 +33,11 @@ def load_geography(route=None):
     return route, route_coordinates, route_points, stations
 
 
-def main(page: ft.Page, on_switch_driver=None):
+from ..components.driver.panic_button import PanicSecurityModule
+from ..services.driver_service import build_emergency_alert
+
+
+def main(page: ft.Page, on_switch_driver=None, driver_session=None, on_back_home=None):
     configure(page)
 
     sources = create_sources(AppSettings.from_env())
@@ -288,19 +292,44 @@ def main(page: ft.Page, on_switch_driver=None):
         ],
     )
 
+    panic_module = None
+    if driver_session is not None:
+        panic_module = PanicSecurityModule(
+            page=page,
+            on_trigger_emergency=lambda method: build_emergency_alert(
+                session=driver_session,
+                latitude=map_state.latest_lat,
+                longitude=map_state.latest_lon,
+                station_context=card.station.value or "En ruta L2",
+                trigger_method=method,
+            ),
+        )
+
     header = ft.Container(
         content=top_bar(
             show_route,
             line_label=route.line_label,
             network_name=route.network_name,
             on_switch_driver=on_switch_driver,
+            driver_session=driver_session,
+            header_sos_button=panic_module.header_sos_button if panic_module else None,
+            on_back_home=on_back_home,
         )
     )
+    dock_controls = [alerts.control, card.control]
+    if panic_module is not None:
+        dock_controls = [
+            panic_module.persistent_alert_banner,
+            alerts.control,
+            card.control,
+            panic_module.panel_control,
+        ]
+
     dock = ft.Container(
         content=ft.Column(
             tight=True,
             spacing=8,
-            controls=[alerts.control, card.control],
+            controls=dock_controls,
         )
     )
     dock_outer = ft.Container(
@@ -322,7 +351,10 @@ def main(page: ft.Page, on_switch_driver=None):
         width = page.width or 390
         header.width = min(width, 1000)
         dock.width = min(max(0, width - 24), CARD_WIDTH)
-        dock.height = 150 if (page.height or 800) < 560 else None
+        if panic_module is not None:
+            dock.height = 290 if (page.height or 800) < 760 else None
+        else:
+            dock.height = 150 if (page.height or 800) < 560 else None
         dock.content.scroll = ft.ScrollMode.AUTO if dock.height else None
         page.update()
 
@@ -394,3 +426,4 @@ def main(page: ft.Page, on_switch_driver=None):
     page.run_task(consume_vehicle_data)
     if alert_service is not None:
         page.run_task(consume_alerts)
+    return panic_module

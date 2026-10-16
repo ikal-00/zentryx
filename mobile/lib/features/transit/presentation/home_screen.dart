@@ -4,6 +4,8 @@ import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:zentryx_mobile/features/driver/domain/driver_session.dart';
+import 'package:zentryx_mobile/features/driver/presentation/driver_emergency_panel.dart';
 import 'package:zentryx_mobile/features/transit/application/transit_controller.dart';
 import 'package:zentryx_mobile/features/transit/domain/models.dart';
 import 'motion/follow_camera.dart';
@@ -14,8 +16,13 @@ import 'widgets/transit_hud.dart';
 import 'widgets/vehicle_marker.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({this.tileProvider, super.key});
+  const HomeScreen({
+    this.tileProvider,
+    this.driverSession,
+    super.key,
+  });
   final TileProvider? tileProvider;
+  final DriverSession? driverSession;
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
@@ -34,6 +41,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   StationInfo? _selectedStation;
   RouteInfo? _cachedRoute;
   List<LatLng> _routePoints = const [];
+  String? _activeEmergencyAlert;
 
   @override
   void initState() {
@@ -98,10 +106,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final position = vehicle?.position;
     final target = position == null ? null : LatLng(position.lat, position.lon);
     final selected = _selectedStation;
+    final driverSession = widget.driverSession;
     return CupertinoPageScaffold(
       navigationBar: Navigator.of(context).canPop()
-          ? const CupertinoNavigationBar(
-              middle: Text('Modo pasajero'), previousPageTitle: 'Inicio')
+          ? CupertinoNavigationBar(
+              transitionBetweenRoutes: false,
+              middle: Text(
+                driverSession != null
+                    ? 'Modo conductor · ${driverSession.unitPlate}'
+                    : 'Modo pasajero',
+              ),
+              previousPageTitle: 'Inicio',
+            )
           : null,
       child: Stack(
         fit: StackFit.expand,
@@ -172,22 +188,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: Semantics(
-                      button: true,
-                      label: 'Ver ruta y estaciones',
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _showRoute,
-                        child: TransitHeaderCard(state: state),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Semantics(
+                          button: true,
+                          label: 'Ver ruta y estaciones',
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _showRoute,
+                            child: TransitHeaderCard(state: state),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 10),
+                      MapFollowButton(following: _follow.following, onPressed: _recenter),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  MapFollowButton(following: _follow.following, onPressed: _recenter),
+                  if (_activeEmergencyAlert != null) ...[
+                    const SizedBox(height: 8),
+                    DriverEmergencyBanner(
+                      alertMessage: _activeEmergencyAlert!,
+                      onDismiss: () => setState(() => _activeEmergencyAlert = null),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -200,19 +228,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.42),
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(context).height *
+                        (driverSession != null ? 0.56 : 0.42),
+                  ),
                   child: SingleChildScrollView(
-                    child: selected == null
-                        ? TransitStatusCard(
-                            state: state,
-                            onRefresh: () => ref.read(transitControllerProvider.notifier).refresh(),
-                          )
-                        : StationStatusCard(
-                            station: selected,
-                            state: state,
-                            onCenter: () => _animateCameraTo(LatLng(selected.position.lat, selected.position.lon)),
-                            onClose: () => setState(() => _selectedStation = null),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (driverSession != null) ...[
+                          DriverEmergencyPanel(
+                            session: driverSession,
+                            vehicle: vehicle,
+                            onEmergencyDispatched: (msg) =>
+                                setState(() => _activeEmergencyAlert = msg),
                           ),
+                          const SizedBox(height: 8),
+                        ],
+                        selected == null
+                            ? TransitStatusCard(
+                                state: state,
+                                onRefresh: () => ref.read(transitControllerProvider.notifier).refresh(),
+                              )
+                            : StationStatusCard(
+                                station: selected,
+                                state: state,
+                                onCenter: () => _animateCameraTo(LatLng(selected.position.lat, selected.position.lon)),
+                                onClose: () => setState(() => _selectedStation = null),
+                              ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),

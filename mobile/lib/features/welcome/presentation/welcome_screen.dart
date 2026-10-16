@@ -7,9 +7,11 @@ import 'package:zentryx_mobile/design_system/zentryx_theme.dart';
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({
     required this.onPassenger,
+    this.onDriver,
     super.key,
   });
   final VoidCallback onPassenger;
+  final VoidCallback? onDriver;
 
   @override
   Widget build(BuildContext context) {
@@ -143,6 +145,16 @@ class WelcomeScreen extends StatelessWidget {
                           primary: true,
                           onPressed: onPassenger,
                         ),
+                        if (onDriver != null) ...[
+                          const SizedBox(height: 12),
+                          _ModeCard(
+                            title: 'Modo conductor',
+                            subtitle: 'Verificación de operador e INE, seguimiento de unidad y botón de emergencia',
+                            icon: CupertinoIcons.shield_lefthalf_fill,
+                            primary: false,
+                            onPressed: onDriver!,
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         Center(
                           child: Text(
